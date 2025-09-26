@@ -30,53 +30,105 @@
         <section class="example-section">
             <h2>JavaScript</h2>
             <pre><code class="language-javascript">
-// Modern JavaScript with async/await
-class ApiClient {
-    constructor(baseUrl) {
-        this.baseUrl = baseUrl;
+// Modern JavaScript with async/await, destructuring, and advanced features
+import { EventEmitter } from 'events';
+import * as utils from './utils.js';
+
+class ApiClient extends EventEmitter {
+    #baseUrl;
+    #retryCount = 0;
+    static MAX_RETRIES = 3;
+
+    constructor(baseUrl, options = {}) {
+        super();
+        this.#baseUrl = baseUrl;
         this.headers = {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.getToken()}`
+            'Authorization': `Bearer ${this.getToken()}`,
+            ...options.headers
         };
+        this.timeout = options.timeout || 5000;
     }
 
-    async fetchData(endpoint) {
+    async fetchData(endpoint, { signal, retries = 0 } = {}) {
         try {
-            const response = await fetch(`${this.baseUrl}/${endpoint}`, {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+            
+            const response = await fetch(`${this.#baseUrl}/${endpoint}`, {
                 method: 'GET',
-                headers: this.headers
+                headers: this.headers,
+                signal: signal || controller.signal
             });
             
+            clearTimeout(timeoutId);
+            
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const data = await response.json();
+            this.emit('data', data);
             return this.processData(data);
+            
         } catch (error) {
-            console.error('Failed to fetch data:', error);
+            if (retries < ApiClient.MAX_RETRIES && error.name !== 'AbortError') {
+                console.warn(`Retry ${retries + 1}/${ApiClient.MAX_RETRIES} for ${endpoint}`);
+                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
+                return this.fetchData(endpoint, { signal, retries: retries + 1 });
+            }
+            
+            this.emit('error', error);
             throw error;
         }
     }
 
     processData(data) {
-        return data.map(item => ({
+        return data?.map(item => ({
             id: item.id,
             name: item.name?.toUpperCase(),
-            timestamp: new Date(item.created_at).toISOString()
-        }));
+            timestamp: new Date(item.created_at).toISOString(),
+            metadata: {
+                ...item.metadata,
+                processed: true
+            }
+        })) ?? [];
     }
 
     getToken() {
         return localStorage.getItem('auth_token') || 'anonymous';
     }
+
+    // Private method using # syntax
+    #validateEndpoint(endpoint) {
+        return /^\/[a-zA-Z0-9\/\-_]+$/.test(endpoint);
+    }
 }
 
-// Usage
-const client = new ApiClient('https://api.example.com');
-client.fetchData('users')
-    .then(users => console.log('Users:', users))
-    .catch(error => console.error('Error:', error));
+// Usage with destructuring and optional chaining
+const client = new ApiClient('https://api.example.com', {
+    timeout: 10000,
+    headers: { 'X-Custom-Header': 'value' }
+});
+
+client.on('data', (data) => console.log('Received:', data));
+client.on('error', (error) => console.error('Error:', error));
+
+const { users, total } = await client.fetchData('/users?limit=10');
+console.log(`Found ${total} users:`, users);
+
+// Advanced array methods and functional programming
+const processedUsers = users
+    .filter(user => user.isActive)
+    .map(user => ({ ...user, displayName: user.name.toUpperCase() }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+// Template literals with expressions
+const summary = `
+    Processed ${processedUsers.length} active users
+    from ${new Date().toLocaleDateString()}
+    with average age: ${processedUsers.reduce((sum, u) => sum + u.age, 0) / processedUsers.length}
+`;
             </code></pre>
         </section>
 
@@ -86,53 +138,114 @@ client.fetchData('users')
             <pre><code class="language-python">
 #!/usr/bin/env python3
 """
-Data processing pipeline with error handling
+Advanced data processing pipeline with async/await, type hints, and error handling
 """
 
 import asyncio
 import json
 import logging
-from typing import List, Dict, Optional
-from dataclasses import dataclass
+import re
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum, auto
 from pathlib import Path
+from typing import List, Dict, Optional, Union, Callable, Any, Generator
+from functools import wraps, lru_cache
+from contextlib import asynccontextmanager
+import aiohttp
+import pandas as pd
+
+class UserStatus(Enum):
+    ACTIVE = auto()
+    INACTIVE = auto()
+    SUSPENDED = auto()
+    PENDING = auto()
 
 @dataclass
 class User:
     id: int
     name: str
     email: str
-    is_active: bool = True
+    status: UserStatus = UserStatus.ACTIVE
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_at: Optional[str] = None
     
-    def to_dict(self) -> Dict:
+    def __post_init__(self):
+        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', self.email):
+            raise ValueError(f"Invalid email format: {self.email}")
+    
+    @property
+    def display_name(self) -> str:
+        return f"{self.name} ({self.email})"
+    
+    def to_dict(self) -> Dict[str, Any]:
         return {
             'id': self.id,
             'name': self.name,
             'email': self.email,
-            'is_active': self.is_active
+            'status': self.status.name,
+            'metadata': self.metadata,
+            'created_at': self.created_at
         }
+    
+    def __str__(self) -> str:
+        return f"User(id={self.id}, name='{self.name}', status={self.status.name})"
 
-class UserProcessor:
-    def __init__(self, data_file: Path):
+class DataProcessor(ABC):
+    @abstractmethod
+    async def process(self, data: Any) -> Any:
+        pass
+
+class UserProcessor(DataProcessor):
+    def __init__(self, data_file: Path, api_url: Optional[str] = None):
         self.data_file = data_file
+        self.api_url = api_url
         self.logger = logging.getLogger(__name__)
-        
-    async def process_users(self) -> List[User]:
-        """Process users from JSON file"""
+        self._session: Optional[aiohttp.ClientSession] = None
+    
+    @asynccontextmanager
+    async def get_session(self):
+        if not self._session:
+            self._session = aiohttp.ClientSession()
         try:
-            with open(self.data_file, 'r') as f:
-                data = json.load(f)
-                
+            yield self._session
+        finally:
+            if self._session:
+                await self._session.close()
+                self._session = None
+    
+    @lru_cache(maxsize=128)
+    def _validate_user_data(self, user_data: Dict[str, Any]) -> bool:
+        required_fields = {'id', 'name', 'email'}
+        return all(field in user_data for field in required_fields)
+    
+    async def process(self, data: Optional[Dict[str, Any]] = None) -> List[User]:
+        """Process users from JSON file or provided data"""
+        try:
+            if data is None:
+                data = await self._load_from_file()
+            
             users = []
             for user_data in data.get('users', []):
-                user = User(
-                    id=user_data['id'],
-                    name=user_data['name'],
-                    email=user_data['email'],
-                    is_active=user_data.get('active', True)
-                )
-                users.append(user)
+                if not self._validate_user_data(user_data):
+                    self.logger.warning(f"Skipping invalid user data: {user_data}")
+                    continue
                 
-            self.logger.info(f"Processed {len(users)} users")
+                try:
+                    user = User(
+                        id=user_data['id'],
+                        name=user_data['name'],
+                        email=user_data['email'],
+                        status=UserStatus[user_data.get('status', 'ACTIVE')],
+                        metadata=user_data.get('metadata', {}),
+                        created_at=user_data.get('created_at')
+                    )
+                    users.append(user)
+                except (ValueError, KeyError) as e:
+                    self.logger.error(f"Error creating user: {e}")
+                    continue
+            
+            self.logger.info(f"Successfully processed {len(users)} users")
             return users
             
         except FileNotFoundError:
@@ -141,16 +254,89 @@ class UserProcessor:
         except json.JSONDecodeError as e:
             self.logger.error(f"Invalid JSON: {e}")
             raise
-        except KeyError as e:
-            self.logger.error(f"Missing required field: {e}")
+        except Exception as e:
+            self.logger.error(f"Unexpected error: {e}")
             raise
+    
+    async def _load_from_file(self) -> Dict[str, Any]:
+        with open(self.data_file, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    
+    async def fetch_from_api(self, endpoint: str) -> List[User]:
+        """Fetch users from API endpoint"""
+        async with self.get_session() as session:
+            async with session.get(f"{self.api_url}/{endpoint}") as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return await self.process(data)
+                else:
+                    raise aiohttp.ClientError(f"API request failed: {response.status}")
+
+def retry_on_failure(max_retries: int = 3):
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        raise
+                    await asyncio.sleep(2 ** attempt)
+            return None
+        return wrapper
+    return decorator
+
+@retry_on_failure(max_retries=3)
+async def process_user_batch(users: List[User]) -> Generator[Dict[str, Any], None, None]:
+    """Process a batch of users with retry logic"""
+    for user in users:
+        yield {
+            'processed_user': user.to_dict(),
+            'timestamp': asyncio.get_event_loop().time(),
+            'status': 'success'
+        }
 
 async def main():
-    processor = UserProcessor(Path('users.json'))
-    users = await processor.process_users()
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
     
-    for user in users:
-        print(f"User: {user.name} ({user.email})")
+    # Initialize processor
+    processor = UserProcessor(
+        data_file=Path('users.json'),
+        api_url='https://api.example.com'
+    )
+    
+    try:
+        # Process users from file
+        users = await processor.process()
+        
+        # Process users from API
+        api_users = await processor.fetch_from_api('users')
+        
+        # Combine and deduplicate
+        all_users = {user.id: user for user in users + api_users}
+        
+        # Process in batches
+        batch_size = 10
+        for i in range(0, len(all_users), batch_size):
+            batch = list(all_users.values())[i:i + batch_size]
+            async for result in process_user_batch(batch):
+                print(f"Processed: {result['processed_user']['name']}")
+        
+        # Create DataFrame for analysis
+        df = pd.DataFrame([user.to_dict() for user in all_users.values()])
+        print(f"\nUser Statistics:")
+        print(f"Total users: {len(df)}")
+        print(f"Active users: {len(df[df['status'] == 'ACTIVE'])}")
+        print(f"Average metadata fields: {df['metadata'].apply(len).mean():.2f}")
+        
+    except Exception as e:
+        logging.error(f"Application error: {e}")
+        raise
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -502,7 +688,10 @@ main "$@"
         <section class="example-section">
             <h2>TypeScript</h2>
             <pre><code class="language-typescript">
-// TypeScript interface definitions and utility types
+// Advanced TypeScript with generics, utility types, and strict typing
+import { EventEmitter } from 'events';
+
+// Strict interface definitions with readonly and optional properties
 interface User {
   readonly id: string;
   name: string;
@@ -510,6 +699,7 @@ interface User {
   preferences: UserPreferences;
   createdAt: Date;
   updatedAt?: Date;
+  metadata?: Record<string, unknown>;
 }
 
 interface UserPreferences {
@@ -520,90 +710,171 @@ interface UserPreferences {
     push: boolean;
     sms: boolean;
   };
+  privacy: {
+    profileVisibility: 'public' | 'private' | 'friends';
+    dataSharing: boolean;
+  };
 }
 
-type UserRole = 'admin' | 'user' | 'moderator';
-type UserStatus = 'active' | 'inactive' | 'suspended';
+// Union types and literal types
+type UserRole = 'admin' | 'user' | 'moderator' | 'guest';
+type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending';
+type ApiMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
-// Generic API response type
-interface ApiResponse<T> {
+// Generic API response type with constraints
+interface ApiResponse<T = unknown> {
   data: T;
   message: string;
   success: boolean;
   timestamp: string;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    hasNext: boolean;
+  };
 }
 
-// Utility type for partial updates
+// Utility types for partial updates and transformations
 type PartialUser = Partial<Pick<User, 'name' | 'email' | 'preferences'>>;
+type UserWithoutId = Omit<User, 'id' | 'createdAt'>;
+type UserWithTimestamps = User & { createdAt: Date; updatedAt: Date };
 
-// Class with generic constraints
-class UserService<T extends User> {
+// Generic constraints and mapped types
+type UserKeys = keyof User;
+type UserValues = User[UserKeys];
+type OptionalUser = {
+  [K in keyof User]?: User[K];
+};
+
+// Advanced generic class with multiple constraints
+class UserService<T extends User> extends EventEmitter {
   private users: Map<string, T> = new Map();
-  
-  constructor(private apiEndpoint: string) {}
-  
-  async createUser(userData: Omit<T, 'id' | 'createdAt'>): Promise<T> {
+  private readonly apiEndpoint: string;
+  private readonly retryAttempts: number;
+
+  constructor(apiEndpoint: string, retryAttempts: number = 3) {
+    super();
+    this.apiEndpoint = apiEndpoint;
+    this.retryAttempts = retryAttempts;
+  }
+
+  // Generic method with conditional types
+  async createUser<K extends keyof UserWithoutId>(
+    userData: Pick<UserWithoutId, K>
+  ): Promise<T> {
     const newUser: T = {
       ...userData,
       id: this.generateId(),
-      createdAt: new Date()
+      createdAt: new Date(),
+      preferences: {
+        theme: 'auto',
+        language: 'en',
+        notifications: { email: true, push: false, sms: false },
+        privacy: { profileVisibility: 'public', dataSharing: false },
+        ...userData.preferences
+      }
     } as T;
     
     this.users.set(newUser.id, newUser);
+    this.emit('userCreated', newUser);
     return newUser;
   }
   
-  async updateUser(id: string, updates: PartialUser): Promise<T | null> {
+  // Method with overloads and strict typing
+  async updateUser(id: string, updates: PartialUser): Promise<T | null>;
+  async updateUser(id: string, updates: PartialUser, validate: boolean): Promise<T | null>;
+  async updateUser(
+    id: string, 
+    updates: PartialUser, 
+    validate: boolean = true
+  ): Promise<T | null> {
     const user = this.users.get(id);
     if (!user) return null;
     
-    const updatedUser = {
+    if (validate && !this.validateUserData(updates)) {
+      throw new Error('Invalid user data provided');
+    }
+    
+    const updatedUser: T = {
       ...user,
       ...updates,
       updatedAt: new Date()
-    };
+    } as T;
     
     this.users.set(id, updatedUser);
+    this.emit('userUpdated', updatedUser);
     return updatedUser;
   }
   
+  // Generic method with type guards
   async deleteUser(id: string): Promise<boolean> {
-    return this.users.delete(id);
+    const user = this.users.get(id);
+    if (!user) return false;
+    
+    const deleted = this.users.delete(id);
+    if (deleted) {
+      this.emit('userDeleted', user);
+    }
+    return deleted;
   }
   
-  async getUser(id: string): Promise<T | null> {
-    return this.users.get(id) || null;
+  // Method with conditional return types
+  async getUser(id: string): Promise<T | null>;
+  async getUser(id: string, includeMetadata: true): Promise<T & { metadata: Record<string, unknown> } | null>;
+  async getUser(id: string, includeMetadata: boolean = false): Promise<T | null> {
+    const user = this.users.get(id);
+    if (!user) return null;
+    
+    if (includeMetadata) {
+      return {
+        ...user,
+        metadata: user.metadata || {}
+      } as T & { metadata: Record<string, unknown> };
+    }
+    
+    return user;
   }
   
+  // Generic method with array transformations
   async getAllUsers(): Promise<T[]> {
     return Array.from(this.users.values());
   }
   
+  // Method with generic constraints and filtering
+  async getUsersByRole<K extends UserRole>(role: K): Promise<T[]> {
+    return Array.from(this.users.values()).filter(user => 
+      (user as any).role === role
+    );
+  }
+  
+  // Private method with strict typing
   private generateId(): string {
     return Math.random().toString(36).substr(2, 9);
   }
+  
+  private validateUserData(data: PartialUser): boolean {
+    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      return false;
+    }
+    return true;
+  }
 }
 
-// Usage with type constraints
-const userService = new UserService<User>('/api/users');
-
-// Async function with proper error handling
-async function processUsers(): Promise<void> {
+// Generic function with type constraints
+async function processUsers<T extends User>(
+  users: T[],
+  processor: (user: T) => Promise<void>
+): Promise<void> {
   try {
-    const users = await userService.getAllUsers();
-    
-    const activeUsers = users.filter(user => 
-      user.preferences.notifications.email
+    const results = await Promise.allSettled(
+      users.map(user => processor(user))
     );
     
-    console.log(`Found ${activeUsers.length} users with email notifications enabled`);
-    
-    // Process users in parallel
-    await Promise.all(
-      activeUsers.map(async (user) => {
-        await sendNotification(user);
-      })
-    );
+    const failures = results.filter(result => result.status === 'rejected');
+    if (failures.length > 0) {
+      console.warn(`${failures.length} users failed to process`);
+    }
     
   } catch (error) {
     console.error('Failed to process users:', error);
@@ -611,14 +882,1217 @@ async function processUsers(): Promise<void> {
   }
 }
 
+// Async function with proper error handling and type guards
 async function sendNotification(user: User): Promise<void> {
-  // Implementation here
-  console.log(`Sending notification to ${user.email}`);
+  if (!user.preferences.notifications.email) {
+    console.log(`Skipping notification for ${user.email} - disabled`);
+    return;
+  }
+  
+  try {
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 100));
+    console.log(`Notification sent to ${user.email}`);
+  } catch (error) {
+    console.error(`Failed to send notification to ${user.email}:`, error);
+    throw error;
+  }
 }
 
-// Export types and service
-export { User, UserPreferences, UserService, ApiResponse };
+// Type-safe event handling
+const userService = new UserService<User>('/api/users', 3);
+
+userService.on('userCreated', (user: User) => {
+  console.log(`New user created: ${user.name} (${user.email})`);
+});
+
+userService.on('userUpdated', (user: User) => {
+  console.log(`User updated: ${user.name}`);
+});
+
+userService.on('userDeleted', (user: User) => {
+  console.log(`User deleted: ${user.name}`);
+});
+
+// Export types and service with proper typing
+export { 
+  User, 
+  UserPreferences, 
+  UserService, 
+  ApiResponse,
+  UserRole,
+  UserStatus,
+  processUsers,
+  sendNotification
+};
+
 export default userService;
+            </code></pre>
+        </section>
+
+        <!-- Rust Example -->
+        <section class="example-section">
+            <h2>Rust</h2>
+            <pre><code class="language-rust">
+// Advanced Rust with async/await, error handling, and memory safety
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::sync::{Mutex, RwLock};
+use serde::{Deserialize, Serialize};
+use anyhow::{Result, Context};
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct User {
+    pub id: Uuid,
+    pub name: String,
+    pub email: String,
+    pub preferences: UserPreferences,
+    pub created_at: SystemTime,
+    pub updated_at: Option<SystemTime>,
+    pub metadata: HashMap<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserPreferences {
+    pub theme: Theme,
+    pub language: String,
+    pub notifications: NotificationSettings,
+    pub privacy: PrivacySettings,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Theme {
+    Light,
+    Dark,
+    Auto,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationSettings {
+    pub email: bool,
+    pub push: bool,
+    pub sms: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrivacySettings {
+    pub profile_visibility: ProfileVisibility,
+    pub data_sharing: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ProfileVisibility {
+    Public,
+    Private,
+    Friends,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ApiResponse<T> {
+    pub data: T,
+    pub message: String,
+    pub success: bool,
+    pub timestamp: u64,
+    pub pagination: Option<PaginationInfo>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaginationInfo {
+    pub page: u32,
+    pub limit: u32,
+    pub total: u64,
+    pub has_next: bool,
+}
+
+// Custom error types
+#[derive(Debug, thiserror::Error)]
+pub enum UserError {
+    #[error("User not found: {id}")]
+    NotFound { id: Uuid },
+    #[error("Invalid email format: {email}")]
+    InvalidEmail { email: String },
+    #[error("Database error: {0}")]
+    Database(#[from] sqlx::Error),
+    #[error("Serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
+    #[error("Validation error: {message}")]
+    Validation { message: String },
+}
+
+// Generic trait for user operations
+#[async_trait::async_trait]
+pub trait UserRepository {
+    async fn create(&self, user: CreateUserRequest) -> Result<User>;
+    async fn get_by_id(&self, id: Uuid) -> Result<Option<User>>;
+    async fn update(&self, id: Uuid, updates: UpdateUserRequest) -> Result<User>;
+    async fn delete(&self, id: Uuid) -> Result<bool>;
+    async fn list(&self, pagination: PaginationParams) -> Result<Vec<User>>;
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateUserRequest {
+    pub name: String,
+    pub email: String,
+    pub preferences: Option<UserPreferences>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateUserRequest {
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub preferences: Option<UserPreferences>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PaginationParams {
+    pub page: u32,
+    pub limit: u32,
+}
+
+// In-memory user repository implementation
+pub struct InMemoryUserRepository {
+    users: Arc<RwLock<HashMap<Uuid, User>>>,
+}
+
+impl InMemoryUserRepository {
+    pub fn new() -> Self {
+        Self {
+            users: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+    
+    fn validate_email(email: &str) -> Result<()> {
+        if !email.contains('@') || !email.contains('.') {
+            return Err(UserError::InvalidEmail { 
+                email: email.to_string() 
+            }.into());
+        }
+        Ok(())
+    }
+    
+    fn validate_user_data(user: &CreateUserRequest) -> Result<()> {
+        if user.name.trim().is_empty() {
+            return Err(UserError::Validation { 
+                message: "Name cannot be empty".to_string() 
+            }.into());
+        }
+        
+        Self::validate_email(&user.email)?;
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl UserRepository for InMemoryUserRepository {
+    async fn create(&self, request: CreateUserRequest) -> Result<User> {
+        Self::validate_user_data(&request)?;
+        
+        let user = User {
+            id: Uuid::new_v4(),
+            name: request.name,
+            email: request.email,
+            preferences: request.preferences.unwrap_or_else(|| UserPreferences {
+                theme: Theme::Auto,
+                language: "en".to_string(),
+                notifications: NotificationSettings {
+                    email: true,
+                    push: false,
+                    sms: false,
+                },
+                privacy: PrivacySettings {
+                    profile_visibility: ProfileVisibility::Public,
+                    data_sharing: false,
+                },
+            }),
+            created_at: SystemTime::now(),
+            updated_at: None,
+            metadata: HashMap::new(),
+        };
+        
+        let mut users = self.users.write().await;
+        users.insert(user.id, user.clone());
+        
+        Ok(user)
+    }
+    
+    async fn get_by_id(&self, id: Uuid) -> Result<Option<User>> {
+        let users = self.users.read().await;
+        Ok(users.get(&id).cloned())
+    }
+    
+    async fn update(&self, id: Uuid, updates: UpdateUserRequest) -> Result<User> {
+        let mut users = self.users.write().await;
+        
+        let mut user = users.get(&id)
+            .ok_or_else(|| UserError::NotFound { id })?
+            .clone();
+        
+        if let Some(name) = updates.name {
+            if name.trim().is_empty() {
+                return Err(UserError::Validation { 
+                    message: "Name cannot be empty".to_string() 
+                }.into());
+            }
+            user.name = name;
+        }
+        
+        if let Some(email) = updates.email {
+            Self::validate_email(&email)?;
+            user.email = email;
+        }
+        
+        if let Some(preferences) = updates.preferences {
+            user.preferences = preferences;
+        }
+        
+        user.updated_at = Some(SystemTime::now());
+        users.insert(id, user.clone());
+        
+        Ok(user)
+    }
+    
+    async fn delete(&self, id: Uuid) -> Result<bool> {
+        let mut users = self.users.write().await;
+        Ok(users.remove(&id).is_some())
+    }
+    
+    async fn list(&self, pagination: PaginationParams) -> Result<Vec<User>> {
+        let users = self.users.read().await;
+        let user_vec: Vec<User> = users.values().cloned().collect();
+        
+        let start = (pagination.page * pagination.limit) as usize;
+        let end = start + pagination.limit as usize;
+        
+        Ok(user_vec.into_iter().skip(start).take(pagination.limit as usize).collect())
+    }
+}
+
+// User service with business logic
+pub struct UserService {
+    repository: Arc<dyn UserRepository + Send + Sync>,
+}
+
+impl UserService {
+    pub fn new(repository: Arc<dyn UserRepository + Send + Sync>) -> Self {
+        Self { repository }
+    }
+    
+    pub async fn create_user(&self, request: CreateUserRequest) -> Result<ApiResponse<User>> {
+        let user = self.repository.create(request).await?;
+        
+        Ok(ApiResponse {
+            data: user,
+            message: "User created successfully".to_string(),
+            success: true,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            pagination: None,
+        })
+    }
+    
+    pub async fn get_user(&self, id: Uuid) -> Result<ApiResponse<User>> {
+        let user = self.repository.get_by_id(id).await?
+            .ok_or_else(|| UserError::NotFound { id })?;
+        
+        Ok(ApiResponse {
+            data: user,
+            message: "User retrieved successfully".to_string(),
+            success: true,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            pagination: None,
+        })
+    }
+    
+    pub async fn update_user(&self, id: Uuid, updates: UpdateUserRequest) -> Result<ApiResponse<User>> {
+        let user = self.repository.update(id, updates).await?;
+        
+        Ok(ApiResponse {
+            data: user,
+            message: "User updated successfully".to_string(),
+            success: true,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            pagination: None,
+        })
+    }
+    
+    pub async fn delete_user(&self, id: Uuid) -> Result<ApiResponse<bool>> {
+        let deleted = self.repository.delete(id).await?;
+        
+        Ok(ApiResponse {
+            data: deleted,
+            message: if deleted { 
+                "User deleted successfully".to_string() 
+            } else { 
+                "User not found".to_string() 
+            },
+            success: true,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            pagination: None,
+        })
+    }
+    
+    pub async fn list_users(&self, pagination: PaginationParams) -> Result<ApiResponse<Vec<User>>> {
+        let users = self.repository.list(pagination).await?;
+        
+        Ok(ApiResponse {
+            data: users,
+            message: "Users retrieved successfully".to_string(),
+            success: true,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            pagination: Some(PaginationInfo {
+                page: pagination.page,
+                limit: pagination.limit,
+                total: users.len() as u64,
+                has_next: false, // Simplified for example
+            }),
+        })
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Initialize repository and service
+    let repository = Arc::new(InMemoryUserRepository::new());
+    let user_service = UserService::new(repository);
+    
+    // Create a new user
+    let create_request = CreateUserRequest {
+        name: "John Doe".to_string(),
+        email: "john.doe@example.com".to_string(),
+        preferences: None,
+    };
+    
+    let response = user_service.create_user(create_request).await?;
+    println!("Created user: {:?}", response.data);
+    
+    let user_id = response.data.id;
+    
+    // Get the user
+    let user_response = user_service.get_user(user_id).await?;
+    println!("Retrieved user: {:?}", user_response.data);
+    
+    // Update the user
+    let update_request = UpdateUserRequest {
+        name: Some("John Smith".to_string()),
+        email: None,
+        preferences: None,
+    };
+    
+    let updated_response = user_service.update_user(user_id, update_request).await?;
+    println!("Updated user: {:?}", updated_response.data);
+    
+    // List users
+    let list_response = user_service.list_users(PaginationParams {
+        page: 0,
+        limit: 10,
+    }).await?;
+    println!("Listed users: {:?}", list_response.data);
+    
+    Ok(())
+}
+            </code></pre>
+        </section>
+
+        <!-- Go Example -->
+        <section class="example-section">
+            <h2>Go</h2>
+            <pre><code class="language-go">
+// Advanced Go with generics, interfaces, and concurrent programming
+package main
+
+import (
+    "context"
+    "encoding/json"
+    "errors"
+    "fmt"
+    "log"
+    "net/http"
+    "sync"
+    "time"
+
+    "github.com/google/uuid"
+    "golang.org/x/sync/errgroup"
+)
+
+// User represents a user in the system
+type User struct {
+    ID          uuid.UUID       `json:"id" db:"id"`
+    Name        string          `json:"name" db:"name"`
+    Email       string          `json:"email" db:"email"`
+    Preferences UserPreferences `json:"preferences" db:"preferences"`
+    CreatedAt   time.Time       `json:"created_at" db:"created_at"`
+    UpdatedAt   *time.Time      `json:"updated_at,omitempty" db:"updated_at"`
+    Metadata    map[string]any  `json:"metadata,omitempty" db:"metadata"`
+}
+
+// UserPreferences contains user-specific settings
+type UserPreferences struct {
+    Theme        Theme             `json:"theme" db:"theme"`
+    Language     string            `json:"language" db:"language"`
+    Notifications NotificationSettings `json:"notifications" db:"notifications"`
+    Privacy      PrivacySettings   `json:"privacy" db:"privacy"`
+}
+
+// Theme represents the user's preferred theme
+type Theme string
+
+const (
+    ThemeLight Theme = "light"
+    ThemeDark  Theme = "dark"
+    ThemeAuto  Theme = "auto"
+)
+
+// NotificationSettings controls notification preferences
+type NotificationSettings struct {
+    Email bool `json:"email" db:"email"`
+    Push  bool `json:"push" db:"push"`
+    SMS   bool `json:"sms" db:"sms"`
+}
+
+// PrivacySettings controls privacy preferences
+type PrivacySettings struct {
+    ProfileVisibility ProfileVisibility `json:"profile_visibility" db:"profile_visibility"`
+    DataSharing       bool              `json:"data_sharing" db:"data_sharing"`
+}
+
+// ProfileVisibility controls who can see the user's profile
+type ProfileVisibility string
+
+const (
+    ProfileVisibilityPublic  ProfileVisibility = "public"
+    ProfileVisibilityPrivate ProfileVisibility = "private"
+    ProfileVisibilityFriends ProfileVisibility = "friends"
+)
+
+// APIResponse represents a standard API response
+type APIResponse[T any] struct {
+    Data       T                `json:"data"`
+    Message    string           `json:"message"`
+    Success    bool             `json:"success"`
+    Timestamp  int64            `json:"timestamp"`
+    Pagination *PaginationInfo  `json:"pagination,omitempty"`
+}
+
+// PaginationInfo provides pagination metadata
+type PaginationInfo struct {
+    Page    int  `json:"page"`
+    Limit   int  `json:"limit"`
+    Total   int  `json:"total"`
+    HasNext bool `json:"has_next"`
+}
+
+// Custom error types
+var (
+    ErrUserNotFound    = errors.New("user not found")
+    ErrInvalidEmail    = errors.New("invalid email format")
+    ErrValidationError = errors.New("validation error")
+)
+
+// UserError represents a user-related error
+type UserError struct {
+    Type    string `json:"type"`
+    Message string `json:"message"`
+    Code    int    `json:"code"`
+}
+
+func (e UserError) Error() string {
+    return fmt.Sprintf("%s: %s", e.Type, e.Message)
+}
+
+// UserRepository defines the interface for user data operations
+type UserRepository interface {
+    Create(ctx context.Context, user *User) error
+    GetByID(ctx context.Context, id uuid.UUID) (*User, error)
+    Update(ctx context.Context, id uuid.UUID, updates map[string]any) error
+    Delete(ctx context.Context, id uuid.UUID) error
+    List(ctx context.Context, pagination PaginationParams) ([]*User, error)
+}
+
+// PaginationParams defines pagination parameters
+type PaginationParams struct {
+    Page  int `json:"page"`
+    Limit int `json:"limit"`
+}
+
+// InMemoryUserRepository implements UserRepository using in-memory storage
+type InMemoryUserRepository struct {
+    users map[uuid.UUID]*User
+    mutex sync.RWMutex
+}
+
+// NewInMemoryUserRepository creates a new in-memory user repository
+func NewInMemoryUserRepository() *InMemoryUserRepository {
+    return &InMemoryUserRepository{
+        users: make(map[uuid.UUID]*User),
+    }
+}
+
+// Create adds a new user to the repository
+func (r *InMemoryUserRepository) Create(ctx context.Context, user *User) error {
+    r.mutex.Lock()
+    defer r.mutex.Unlock()
+
+    if err := r.validateUser(user); err != nil {
+        return err
+    }
+
+    user.ID = uuid.New()
+    user.CreatedAt = time.Now()
+    r.users[user.ID] = user
+    return nil
+}
+
+// GetByID retrieves a user by their ID
+func (r *InMemoryUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
+    r.mutex.RLock()
+    defer r.mutex.RUnlock()
+
+    user, exists := r.users[id]
+    if !exists {
+        return nil, ErrUserNotFound
+    }
+
+    // Return a copy to prevent external modifications
+    userCopy := *user
+    return &userCopy, nil
+}
+
+// Update modifies an existing user
+func (r *InMemoryUserRepository) Update(ctx context.Context, id uuid.UUID, updates map[string]any) error {
+    r.mutex.Lock()
+    defer r.mutex.Unlock()
+
+    user, exists := r.users[id]
+    if !exists {
+        return ErrUserNotFound
+    }
+
+    // Apply updates
+    for key, value := range updates {
+        switch key {
+        case "name":
+            if name, ok := value.(string); ok {
+                user.Name = name
+            }
+        case "email":
+            if email, ok := value.(string); ok {
+                if err := r.validateEmail(email); err != nil {
+                    return err
+                }
+                user.Email = email
+            }
+        case "preferences":
+            if prefs, ok := value.(UserPreferences); ok {
+                user.Preferences = prefs
+            }
+        }
+    }
+
+    now := time.Now()
+    user.UpdatedAt = &now
+    return nil
+}
+
+// Delete removes a user from the repository
+func (r *InMemoryUserRepository) Delete(ctx context.Context, id uuid.UUID) error {
+    r.mutex.Lock()
+    defer r.mutex.Unlock()
+
+    if _, exists := r.users[id]; !exists {
+        return ErrUserNotFound
+    }
+
+    delete(r.users, id)
+    return nil
+}
+
+// List retrieves users with pagination
+func (r *InMemoryUserRepository) List(ctx context.Context, pagination PaginationParams) ([]*User, error) {
+    r.mutex.RLock()
+    defer r.mutex.RUnlock()
+
+    var users []*User
+    for _, user := range r.users {
+        users = append(users, user)
+    }
+
+    // Simple pagination
+    start := pagination.Page * pagination.Limit
+    end := start + pagination.Limit
+
+    if start >= len(users) {
+        return []*User{}, nil
+    }
+
+    if end > len(users) {
+        end = len(users)
+    }
+
+    return users[start:end], nil
+}
+
+// validateUser validates user data
+func (r *InMemoryUserRepository) validateUser(user *User) error {
+    if user.Name == "" {
+        return fmt.Errorf("%w: name cannot be empty", ErrValidationError)
+    }
+
+    if err := r.validateEmail(user.Email); err != nil {
+        return err
+    }
+
+    return nil
+}
+
+// validateEmail validates email format
+func (r *InMemoryUserRepository) validateEmail(email string) error {
+    if email == "" || !contains(email, "@") || !contains(email, ".") {
+        return fmt.Errorf("%w: %s", ErrInvalidEmail, email)
+    }
+    return nil
+}
+
+// contains checks if a string contains a substring
+func contains(s, substr string) bool {
+    return len(s) >= len(substr) && (s == substr || len(substr) == 0 || 
+        (len(s) > len(substr) && (s[:len(substr)] == substr || 
+        s[len(s)-len(substr):] == substr || 
+        containsSubstring(s, substr))))
+}
+
+func containsSubstring(s, substr string) bool {
+    for i := 0; i <= len(s)-len(substr); i++ {
+        if s[i:i+len(substr)] == substr {
+            return true
+        }
+    }
+    return false
+}
+
+// UserService provides business logic for user operations
+type UserService struct {
+    repo UserRepository
+}
+
+// NewUserService creates a new user service
+func NewUserService(repo UserRepository) *UserService {
+    return &UserService{repo: repo}
+}
+
+// CreateUser creates a new user
+func (s *UserService) CreateUser(ctx context.Context, req CreateUserRequest) (*APIResponse[User], error) {
+    user := &User{
+        Name:  req.Name,
+        Email: req.Email,
+        Preferences: req.Preferences,
+        Metadata:    make(map[string]any),
+    }
+
+    if err := s.repo.Create(ctx, user); err != nil {
+        return nil, err
+    }
+
+    return &APIResponse[User]{
+        Data:      *user,
+        Message:   "User created successfully",
+        Success:   true,
+        Timestamp: time.Now().Unix(),
+    }, nil
+}
+
+// GetUser retrieves a user by ID
+func (s *UserService) GetUser(ctx context.Context, id uuid.UUID) (*APIResponse[User], error) {
+    user, err := s.repo.GetByID(ctx, id)
+    if err != nil {
+        return nil, err
+    }
+
+    return &APIResponse[User]{
+        Data:      *user,
+        Message:   "User retrieved successfully",
+        Success:   true,
+        Timestamp: time.Now().Unix(),
+    }, nil
+}
+
+// UpdateUser updates an existing user
+func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, req UpdateUserRequest) (*APIResponse[User], error) {
+    updates := make(map[string]any)
+    
+    if req.Name != nil {
+        updates["name"] = *req.Name
+    }
+    if req.Email != nil {
+        updates["email"] = *req.Email
+    }
+    if req.Preferences != nil {
+        updates["preferences"] = *req.Preferences
+    }
+
+    if err := s.repo.Update(ctx, id, updates); err != nil {
+        return nil, err
+    }
+
+    user, err := s.repo.GetByID(ctx, id)
+    if err != nil {
+        return nil, err
+    }
+
+    return &APIResponse[User]{
+        Data:      *user,
+        Message:   "User updated successfully",
+        Success:   true,
+        Timestamp: time.Now().Unix(),
+    }, nil
+}
+
+// DeleteUser removes a user
+func (s *UserService) DeleteUser(ctx context.Context, id uuid.UUID) (*APIResponse[bool], error) {
+    if err := s.repo.Delete(ctx, id); err != nil {
+        return nil, err
+    }
+
+    return &APIResponse[bool]{
+        Data:      true,
+        Message:   "User deleted successfully",
+        Success:   true,
+        Timestamp: time.Now().Unix(),
+    }, nil
+}
+
+// ListUsers retrieves users with pagination
+func (s *UserService) ListUsers(ctx context.Context, pagination PaginationParams) (*APIResponse[[]*User], error) {
+    users, err := s.repo.List(ctx, pagination)
+    if err != nil {
+        return nil, err
+    }
+
+    return &APIResponse[[]*User]{
+        Data:      users,
+        Message:   "Users retrieved successfully",
+        Success:   true,
+        Timestamp: time.Now().Unix(),
+        Pagination: &PaginationInfo{
+            Page:    pagination.Page,
+            Limit:   pagination.Limit,
+            Total:   len(users),
+            HasNext: false, // Simplified for example
+        },
+    }, nil
+}
+
+// Request/Response types
+type CreateUserRequest struct {
+    Name        string            `json:"name"`
+    Email       string            `json:"email"`
+    Preferences UserPreferences   `json:"preferences"`
+}
+
+type UpdateUserRequest struct {
+    Name        *string           `json:"name,omitempty"`
+    Email       *string           `json:"email,omitempty"`
+    Preferences *UserPreferences  `json:"preferences,omitempty"`
+}
+
+// ProcessUsersBatch processes multiple users concurrently
+func (s *UserService) ProcessUsersBatch(ctx context.Context, userIDs []uuid.UUID) error {
+    g, ctx := errgroup.WithContext(ctx)
+    
+    for _, id := range userIDs {
+        id := id // Capture loop variable
+        g.Go(func() error {
+            user, err := s.repo.GetByID(ctx, id)
+            if err != nil {
+                return err
+            }
+            
+            // Simulate some processing
+            time.Sleep(10 * time.Millisecond)
+            log.Printf("Processed user: %s", user.Name)
+            
+            return nil
+        })
+    }
+    
+    return g.Wait()
+}
+
+func main() {
+    // Initialize repository and service
+    repo := NewInMemoryUserRepository()
+    service := NewUserService(repo)
+    
+    ctx := context.Background()
+    
+    // Create a user
+    createReq := CreateUserRequest{
+        Name:  "John Doe",
+        Email: "john.doe@example.com",
+        Preferences: UserPreferences{
+            Theme:    ThemeAuto,
+            Language: "en",
+            Notifications: NotificationSettings{
+                Email: true,
+                Push:  false,
+                SMS:   false,
+            },
+            Privacy: PrivacySettings{
+                ProfileVisibility: ProfileVisibilityPublic,
+                DataSharing:       false,
+            },
+        },
+    }
+    
+    response, err := service.CreateUser(ctx, createReq)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Printf("Created user: %+v\n", response.Data)
+    
+    // Process multiple users concurrently
+    userIDs := []uuid.UUID{response.Data.ID}
+    if err := service.ProcessUsersBatch(ctx, userIDs); err != nil {
+        log.Fatal(err)
+    }
+}
+            </code></pre>
+        </section>
+
+        <!-- SQL Example -->
+        <section class="example-section">
+            <h2>SQL</h2>
+            <pre><code class="language-sql">
+-- Advanced SQL with complex queries, window functions, and performance optimization
+-- Database schema for a comprehensive user management system
+
+-- Create database and set up extensions
+CREATE DATABASE user_management;
+\c user_management;
+
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "btree_gin";
+
+-- Create custom types
+CREATE TYPE user_status AS ENUM ('active', 'inactive', 'suspended', 'pending');
+CREATE TYPE theme_type AS ENUM ('light', 'dark', 'auto');
+CREATE TYPE profile_visibility AS ENUM ('public', 'private', 'friends');
+CREATE TYPE notification_type AS ENUM ('email', 'push', 'sms');
+
+-- Create main users table with comprehensive indexing
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    status user_status DEFAULT 'pending',
+    email_verified BOOLEAN DEFAULT FALSE,
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE NULL,
+    
+    -- Constraints
+    CONSTRAINT users_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+    CONSTRAINT users_name_length CHECK (LENGTH(name) >= 2 AND LENGTH(name) <= 255)
+);
+
+-- Create user preferences table
+CREATE TABLE user_preferences (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    theme theme_type DEFAULT 'auto',
+    language VARCHAR(10) DEFAULT 'en',
+    timezone VARCHAR(50) DEFAULT 'UTC',
+    date_format VARCHAR(20) DEFAULT 'YYYY-MM-DD',
+    currency VARCHAR(3) DEFAULT 'USD',
+    notifications JSONB DEFAULT '{"email": true, "push": false, "sms": false}',
+    privacy JSONB DEFAULT '{"profile_visibility": "public", "data_sharing": false}',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create user metadata table for flexible data storage
+CREATE TABLE user_metadata (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    key VARCHAR(100) NOT NULL,
+    value JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    
+    UNIQUE(user_id, key)
+);
+
+-- Create user sessions table
+CREATE TABLE user_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL,
+    ip_address INET,
+    user_agent TEXT,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    last_accessed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- Create user activity log table
+CREATE TABLE user_activity_log (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    action VARCHAR(100) NOT NULL,
+    resource_type VARCHAR(50),
+    resource_id UUID,
+    metadata JSONB,
+    ip_address INET,
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create comprehensive indexes for performance
+CREATE INDEX CONCURRENTLY idx_users_email ON users(email);
+CREATE INDEX CONCURRENTLY idx_users_status ON users(status);
+CREATE INDEX CONCURRENTLY idx_users_created_at ON users(created_at);
+CREATE INDEX CONCURRENTLY idx_users_name_gin ON users USING gin(name gin_trgm_ops);
+CREATE INDEX CONCURRENTLY idx_users_email_gin ON users USING gin(email gin_trgm_ops);
+
+CREATE INDEX CONCURRENTLY idx_user_metadata_user_id ON user_metadata(user_id);
+CREATE INDEX CONCURRENTLY idx_user_metadata_key ON user_metadata(key);
+CREATE INDEX CONCURRENTLY idx_user_metadata_value_gin ON user_metadata USING gin(value);
+
+CREATE INDEX CONCURRENTLY idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX CONCURRENTLY idx_user_sessions_token_hash ON user_sessions(token_hash);
+CREATE INDEX CONCURRENTLY idx_user_sessions_expires_at ON user_sessions(expires_at);
+CREATE INDEX CONCURRENTLY idx_user_sessions_active ON user_sessions(is_active) WHERE is_active = TRUE;
+
+CREATE INDEX CONCURRENTLY idx_user_activity_user_id ON user_activity_log(user_id);
+CREATE INDEX CONCURRENTLY idx_user_activity_action ON user_activity_log(action);
+CREATE INDEX CONCURRENTLY idx_user_activity_created_at ON user_activity_log(created_at);
+CREATE INDEX CONCURRENTLY idx_user_activity_metadata_gin ON user_activity_log USING gin(metadata);
+
+-- Create updated_at trigger function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create triggers for updated_at
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_user_preferences_updated_at BEFORE UPDATE ON user_preferences
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_user_metadata_updated_at BEFORE UPDATE ON user_metadata
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Insert sample data
+INSERT INTO users (name, email, password_hash, status, email_verified) VALUES
+    ('John Doe', 'john.doe@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/8KzKz2', 'active', TRUE),
+    ('Jane Smith', 'jane.smith@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/8KzKz2', 'active', TRUE),
+    ('Bob Johnson', 'bob.johnson@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/8KzKz2', 'inactive', FALSE),
+    ('Alice Brown', 'alice.brown@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/8KzKz2', 'active', TRUE);
+
+-- Insert user preferences
+INSERT INTO user_preferences (user_id, theme, language, notifications, privacy)
+SELECT 
+    u.id,
+    CASE (ROW_NUMBER() OVER ()) % 3
+        WHEN 0 THEN 'light'::theme_type
+        WHEN 1 THEN 'dark'::theme_type
+        ELSE 'auto'::theme_type
+    END,
+    CASE (ROW_NUMBER() OVER ()) % 2
+        WHEN 0 THEN 'en'
+        ELSE 'es'
+    END,
+    jsonb_build_object(
+        'email', (ROW_NUMBER() OVER ()) % 2 = 0,
+        'push', (ROW_NUMBER() OVER ()) % 3 = 0,
+        'sms', FALSE
+    ),
+    jsonb_build_object(
+        'profile_visibility', 
+        CASE (ROW_NUMBER() OVER ()) % 3
+            WHEN 0 THEN 'public'
+            WHEN 1 THEN 'private'
+            ELSE 'friends'
+        END,
+        'data_sharing', (ROW_NUMBER() OVER ()) % 4 = 0
+    )
+FROM users u;
+
+-- Insert sample metadata
+INSERT INTO user_metadata (user_id, key, value)
+SELECT 
+    u.id,
+    'avatar_url',
+    jsonb_build_object('url', 'https://example.com/avatars/' || u.id::text || '.jpg')
+FROM users u;
+
+-- Complex analytical queries
+
+-- 1. User statistics with window functions
+WITH user_stats AS (
+    SELECT 
+        u.id,
+        u.name,
+        u.email,
+        u.status,
+        u.created_at,
+        up.theme,
+        up.language,
+        up.notifications->>'email' as email_notifications,
+        up.privacy->>'profile_visibility' as profile_visibility,
+        COUNT(ual.id) as activity_count,
+        MAX(ual.created_at) as last_activity,
+        ROW_NUMBER() OVER (PARTITION BY u.status ORDER BY u.created_at DESC) as status_rank,
+        RANK() OVER (ORDER BY u.created_at) as registration_rank,
+        LAG(u.created_at) OVER (ORDER BY u.created_at) as prev_user_created_at,
+        LEAD(u.created_at) OVER (ORDER BY u.created_at) as next_user_created_at
+    FROM users u
+    LEFT JOIN user_preferences up ON u.id = up.user_id
+    LEFT JOIN user_activity_log ual ON u.id = ual.user_id
+    WHERE u.deleted_at IS NULL
+    GROUP BY u.id, u.name, u.email, u.status, u.created_at, up.theme, up.language, up.notifications, up.privacy
+)
+SELECT 
+    status,
+    COUNT(*) as user_count,
+    AVG(activity_count) as avg_activity,
+    MIN(created_at) as first_registration,
+    MAX(created_at) as last_registration,
+    COUNT(*) FILTER (WHERE email_notifications = 'true') as email_notifications_enabled,
+    COUNT(*) FILTER (WHERE profile_visibility = 'public') as public_profiles
+FROM user_stats
+GROUP BY status
+ORDER BY user_count DESC;
+
+-- 2. Advanced user search with full-text search
+SELECT 
+    u.id,
+    u.name,
+    u.email,
+    u.status,
+    up.theme,
+    up.language,
+    ts_rank(
+        to_tsvector('english', u.name || ' ' || u.email),
+        plainto_tsquery('english', 'john')
+    ) as relevance_score
+FROM users u
+LEFT JOIN user_preferences up ON u.id = up.user_id
+WHERE 
+    to_tsvector('english', u.name || ' ' || u.email) @@ plainto_tsquery('english', 'john')
+    OR u.name ILIKE '%john%'
+    OR u.email ILIKE '%john%'
+ORDER BY relevance_score DESC, u.created_at DESC;
+
+-- 3. User activity analysis with time-based aggregations
+SELECT 
+    DATE_TRUNC('day', ual.created_at) as activity_date,
+    ual.action,
+    COUNT(*) as action_count,
+    COUNT(DISTINCT ual.user_id) as unique_users,
+    AVG(COUNT(*)) OVER (
+        PARTITION BY ual.action 
+        ORDER BY DATE_TRUNC('day', ual.created_at) 
+        ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+    ) as seven_day_avg
+FROM user_activity_log ual
+WHERE ual.created_at >= NOW() - INTERVAL '30 days'
+GROUP BY DATE_TRUNC('day', ual.created_at), ual.action
+ORDER BY activity_date DESC, action_count DESC;
+
+-- 4. User engagement metrics with complex CTEs
+WITH user_engagement AS (
+    SELECT 
+        u.id,
+        u.name,
+        u.email,
+        u.created_at as registration_date,
+        COUNT(ual.id) as total_activities,
+        COUNT(DISTINCT DATE(ual.created_at)) as active_days,
+        MAX(ual.created_at) as last_activity,
+        MIN(ual.created_at) as first_activity,
+        EXTRACT(DAYS FROM (MAX(ual.created_at) - MIN(ual.created_at))) as activity_span_days,
+        COUNT(us.id) as session_count,
+        MAX(us.last_accessed_at) as last_session
+    FROM users u
+    LEFT JOIN user_activity_log ual ON u.id = ual.user_id
+    LEFT JOIN user_sessions us ON u.id = us.user_id AND us.is_active = TRUE
+    WHERE u.deleted_at IS NULL
+    GROUP BY u.id, u.name, u.email, u.created_at
+),
+engagement_metrics AS (
+    SELECT 
+        *,
+        CASE 
+            WHEN total_activities = 0 THEN 'inactive'
+            WHEN total_activities < 10 THEN 'low'
+            WHEN total_activities < 50 THEN 'medium'
+            ELSE 'high'
+        END as engagement_level,
+        CASE 
+            WHEN last_activity IS NULL THEN NULL
+            WHEN last_activity > NOW() - INTERVAL '7 days' THEN 'active'
+            WHEN last_activity > NOW() - INTERVAL '30 days' THEN 'recent'
+            ELSE 'dormant'
+        END as recency_level
+    FROM user_engagement
+)
+SELECT 
+    engagement_level,
+    recency_level,
+    COUNT(*) as user_count,
+    AVG(total_activities) as avg_activities,
+    AVG(active_days) as avg_active_days,
+    AVG(session_count) as avg_sessions
+FROM engagement_metrics
+GROUP BY engagement_level, recency_level
+ORDER BY engagement_level, recency_level;
+
+-- 5. Performance monitoring query
+EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+SELECT 
+    u.id,
+    u.name,
+    u.email,
+    up.theme,
+    up.notifications,
+    COUNT(ual.id) as activity_count,
+    MAX(ual.created_at) as last_activity
+FROM users u
+INNER JOIN user_preferences up ON u.id = up.user_id
+LEFT JOIN user_activity_log ual ON u.id = ual.user_id
+WHERE u.status = 'active'
+    AND u.created_at >= NOW() - INTERVAL '90 days'
+    AND up.notifications->>'email' = 'true'
+GROUP BY u.id, u.name, u.email, up.theme, up.notifications
+HAVING COUNT(ual.id) > 5
+ORDER BY last_activity DESC NULLS LAST
+LIMIT 100;
             </code></pre>
         </section>
     </main>

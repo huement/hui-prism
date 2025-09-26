@@ -1,5 +1,9 @@
 # Hui Prism Theme
 
+<div align="center">
+  <img src="docs/preview.png" alt="Hui Prism Theme Preview" width="800" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+</div>
+
 A modern, feature-rich Prism.js theme built with Sass, featuring multiple color schemes, advanced customization options, and comprehensive build tools.
 
 ## ✨ Features

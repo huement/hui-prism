@@ -22,7 +22,6 @@ exclude:
   - sass.config.js
   - build.config.js
   - theme.scss
-  - _prism-theme.scss
   - src
   - .gitignore
   - .npmignore

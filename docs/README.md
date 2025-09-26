@@ -1,5 +1,9 @@
 # Hui Prism Theme - Documentation & Examples
 
+<div align="center">
+  <img src="preview.png" alt="Hui Prism Theme Preview" width="800" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+</div>
+
 This documentation provides live examples and comprehensive testing for the Hui Prism theme with various code examples and interactive features.
 
 ## 🚀 Quick Access
