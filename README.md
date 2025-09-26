@@ -15,6 +15,10 @@ A modern, feature-rich Prism.js theme built with Sass, featuring multiple color 
 
 ## 🚀 Quick Start
 
+### Live Demo
+
+🎨 **[View Live Documentation & Examples](https://huement.github.io/hui-prism/)** - Interactive showcase with all language examples
+
 ### Installation
 
 ```bash

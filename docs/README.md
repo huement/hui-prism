@@ -1,6 +1,12 @@
-# Hui Prism Theme Testbed
+# Hui Prism Theme - Documentation & Examples
 
-This testbed provides a comprehensive testing environment for the Hui Prism theme with various code examples and interactive features.
+This documentation provides live examples and comprehensive testing for the Hui Prism theme with various code examples and interactive features.
+
+## 🚀 Quick Access
+
+- **Live Demo**: [View on GitHub Pages](https://huement.github.io/hui-prism/)
+- **NPM Package**: `@huement/hui-prism`
+- **Repository**: [GitHub](https://github.com/huement/hui-prism)
 
 ## Features
 
@@ -11,16 +17,16 @@ This testbed provides a comprehensive testing environment for the Hui Prism them
 - **Accessibility**: Full keyboard navigation and screen reader support
 - **Performance Monitoring**: Built-in performance tracking
 
-## Usage
+## Local Development
 
 ### Quick Start
 
 ```bash
-# Build theme and start testbed server
-npm run testbed
+# Build theme and start docs server
+npm run docs
 
 # Or build and open in browser automatically
-npm run testbed:open
+npm run docs:open
 ```
 
 ### Manual Setup
@@ -29,8 +35,8 @@ npm run testbed:open
 # Build the theme first
 npm run build:dev
 
-# Start a local server in the testbed directory
-cd testbed
+# Start a local server in the docs directory
+cd docs
 python3 -m http.server 8080
 
 # Open in browser
@@ -46,16 +52,16 @@ open http://localhost:8080
 ## File Structure
 
 ```
-testbed/
-├── index.html          # Main testbed page
-├── testbed.css         # Testbed-specific styles
-├── testbed.js          # Interactive functionality
+docs/
+├── index.html          # Main documentation page
+├── docs.css            # Documentation-specific styles
+├── docs.js             # Interactive functionality
 └── README.md           # This file
 ```
 
 ## Testing Different Themes
 
-The testbed automatically loads the latest built theme from `../dist/theme.css`. To test different theme variants:
+The documentation automatically loads the latest built theme from `../dist/theme.css`. To test different theme variants:
 
 1. Build the desired theme variant:
    ```bash
@@ -63,13 +69,13 @@ The testbed automatically loads the latest built theme from `../dist/theme.css`.
    npm run build:prod   # Production build
    ```
 
-2. Use the theme switcher buttons in the testbed interface
+2. Use the theme switcher buttons in the documentation interface
 
 3. Or use keyboard shortcuts for quick switching
 
 ## Code Examples
 
-The testbed includes comprehensive examples for:
+The documentation includes comprehensive examples for:
 
 - **JavaScript**: Modern ES6+ features, async/await, classes
 - **Python**: Type hints, dataclasses, async programming
@@ -86,17 +92,17 @@ The testbed includes comprehensive examples for:
 - Safari 14+
 - Edge 88+
 
-## Development
+## GitHub Pages
 
-The testbed is designed to be:
-- **Excluded from npm packages** (via `.npmignore`)
-- **Included in git repository** for development and testing
-- **Self-contained** with all necessary assets
-- **Responsive** for testing on different devices
+This documentation is automatically deployed to GitHub Pages when changes are pushed to the main branch. The GitHub Actions workflow:
+
+1. Builds the theme CSS files
+2. Deploys the entire repository to GitHub Pages
+3. Makes the documentation available at `https://huement.github.io/hui-prism/`
 
 ## Notes
 
-- The testbed uses CDN-hosted Prism.js for syntax highlighting
+- The documentation uses CDN-hosted Prism.js for syntax highlighting
 - Theme switching is handled via JavaScript for dynamic testing
 - All examples are real-world code snippets for authentic testing
 - Performance metrics are logged to the browser console

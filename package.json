@@ -34,9 +34,10 @@
     "prebuild": "npm run clean",
     "postbuild": "npm run build:info",
     "build:info": "node -e \"console.log('\\n🎨 Hui Prism Theme built successfully!\\n📁 Output: dist/\\n📄 Files: theme.css, theme.min.css\\n\\n🚀 Usage:\\n  <link rel=\\\"stylesheet\\\" href=\\\"dist/theme.css\\\">\\n\\n📖 Documentation: https://github.com/huement/hui-prism\\n')\"",
-    "testbed": "npm run build:dev && npm run testbed:serve",
-    "testbed:serve": "python3 -m http.server 8080 --directory testbed",
-    "testbed:open": "npm run testbed && open http://localhost:8080",
+    "docs": "npm run build:dev && npm run docs:serve",
+    "docs:serve": "python3 -m http.server 8080",
+    "docs:open": "npm run docs && open http://localhost:8080",
+    "docs:update": "npm run build && cp -r dist docs/",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

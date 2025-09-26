@@ -109,12 +109,12 @@
         <p>Welcome to the Hui Prism Theme project! This is a beautiful syntax highlighting theme built with Sass and designed around the HUI color palette.</p>
         
         <div class="redirect-info">
-            <p><strong>🚀 Testbed Available!</strong></p>
-            <p>You'll be automatically redirected to the testbed in <span class="countdown" id="countdown">3</span> seconds...</p>
-            <p>The testbed contains live examples of the theme with various programming languages and syntax highlighting.</p>
+            <p><strong>🚀 Documentation Available!</strong></p>
+            <p>You'll be automatically redirected to the documentation in <span class="countdown" id="countdown">3</span> seconds...</p>
+            <p>The documentation contains live examples of the theme with various programming languages and syntax highlighting.</p>
         </div>
         
-        <a href="/testbed/" class="manual-link">Go to Testbed Now</a>
+        <a href="docs/" class="manual-link">Go to Documentation Now</a>
         
         <div class="features">
             <div class="feature">
@@ -142,14 +142,14 @@
             
             if (countdown <= 0) {
                 clearInterval(timer);
-                window.location.href = '/testbed/';
+                window.location.href = 'docs/';
             }
         }, 1000);
         
         // Also redirect immediately if user clicks anywhere on the page
         document.addEventListener('click', () => {
             clearInterval(timer);
-            window.location.href = '/testbed/';
+            window.location.href = 'docs/';
         });
     </script>
 </body>

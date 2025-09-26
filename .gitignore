@@ -6,6 +6,7 @@ yarn-error.log*
 
 # Build outputs
 dist/
+!docs/dist/
 *.css.map
 
 # Environment variables

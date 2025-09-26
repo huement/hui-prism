@@ -1,0 +1,60 @@
+# GitHub Pages Configuration for Hui Prism Theme
+
+# Site settings
+title: Hui Prism Theme
+description: A modern Prism.js theme with HUI color scheme
+url: https://huement.github.io
+baseurl: /hui-prism
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+theme: minima
+
+# Exclude files from processing
+exclude:
+  - node_modules
+  - testbed
+  - .git
+  - .github
+  - package.json
+  - package-lock.json
+  - sass.config.js
+  - build.config.js
+  - theme.scss
+  - _prism-theme.scss
+  - src
+  - .gitignore
+  - .npmignore
+
+# Include files
+include:
+  - docs
+  - dist
+  - LICENSE
+  - README.md
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Collections
+collections:
+  docs:
+    output: true
+    permalink: /:collection/:name/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"
+  - scope:
+      path: ""
+      type: "docs"
+    values:
+      layout: "default"

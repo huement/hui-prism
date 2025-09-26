@@ -12,9 +12,9 @@ function switchTheme(theme) {
 
   // Switch CSS file
   if (theme === "dev") {
-    themeLink.href = "../dist/theme.css";
+    themeLink.href = "dist/theme.css";
   } else {
-    themeLink.href = "../dist/theme.min.css";
+    themeLink.href = "dist/theme.min.css";
   }
 
   // Store preference
