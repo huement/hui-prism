@@ -1,0 +1,55 @@
+# Development files
+testbed/
+*.log
+*.tgz
+*.tar.gz
+
+# Build artifacts
+node_modules/
+.npm/
+.yarn/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git files
+.git/
+.gitignore
+
+# Documentation (keep README.md)
+docs/
+*.md
+!README.md
+
+# Test files
+test/
+tests/
+__tests__/
+*.test.js
+*.spec.js
+
+# Config files
+.eslintrc*
+.prettierrc*
+.editorconfig
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp

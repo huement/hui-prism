@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hui Prism Theme</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #212121 0%, #2a2a2a 100%);
+            color: #adadad;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 600px;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        h1 {
+            color: #ff0054;
+            margin-bottom: 1rem;
+            font-size: 2.5rem;
+        }
+        
+        .subtitle {
+            color: #0fb4f0;
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+        }
+        
+        p {
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        
+        .redirect-info {
+            background: rgba(251, 255, 18, 0.1);
+            border: 1px solid rgba(251, 255, 18, 0.3);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1.5rem 0;
+        }
+        
+        .countdown {
+            font-size: 1.5rem;
+            color: #fbff12;
+            font-weight: bold;
+        }
+        
+        .manual-link {
+            display: inline-block;
+            background: #ff0054;
+            color: white;
+            text-decoration: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+        }
+        
+        .manual-link:hover {
+            background: #e6004a;
+            transform: translateY(-2px);
+        }
+        
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+        
+        .feature {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .feature h3 {
+            color: #0fb4f0;
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+        }
+        
+        .feature p {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Hui Prism Theme</h1>
+        <p class="subtitle">A modern Prism.js theme with HUI color scheme</p>
+        
+        <p>Welcome to the Hui Prism Theme project! This is a beautiful syntax highlighting theme built with Sass and designed around the HUI color palette.</p>
+        
+        <div class="redirect-info">
+            <p><strong>🚀 Testbed Available!</strong></p>
+            <p>You'll be automatically redirected to the testbed in <span class="countdown" id="countdown">3</span> seconds...</p>
+            <p>The testbed contains live examples of the theme with various programming languages and syntax highlighting.</p>
+        </div>
+        
+        <a href="/testbed/" class="manual-link">Go to Testbed Now</a>
+        
+        <div class="features">
+            <div class="feature">
+                <h3>🎨 Beautiful Colors</h3>
+                <p>HUI-inspired color scheme with excellent contrast</p>
+            </div>
+            <div class="feature">
+                <h3>⚡ Modern Sass</h3>
+                <p>Built with modern Sass features and utilities</p>
+            </div>
+            <div class="feature">
+                <h3>🔧 Customizable</h3>
+                <p>Easy to customize and extend for your needs</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let countdown = 3;
+        const countdownElement = document.getElementById('countdown');
+        
+        const timer = setInterval(() => {
+            countdown--;
+            countdownElement.textContent = countdown;
+            
+            if (countdown <= 0) {
+                clearInterval(timer);
+                window.location.href = '/testbed/';
+            }
+        }, 1000);
+        
+        // Also redirect immediately if user clicks anywhere on the page
+        document.addEventListener('click', () => {
+            clearInterval(timer);
+            window.location.href = '/testbed/';
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hui Prism Theme - Testbed</title>
+    
+    <!-- Prism.js Core -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    
+    <!-- Hui Prism Theme -->
+    <link rel="stylesheet" href="/dist/theme.css">
+    
+    <!-- Testbed Styles -->
+    <link rel="stylesheet" href="/testbed/testbed.css">
+</head>
+<body>
+    <header class="header">
+        <h1>🎨 Hui Prism Theme Testbed</h1>
+        <p>Testing the HUI color scheme with various code examples</p>
+        <div class="theme-switcher">
+            <button onclick="switchTheme('dev')" class="btn active" id="btn-dev">Development</button>
+            <button onclick="switchTheme('prod')" class="btn" id="btn-prod">Production</button>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- JavaScript Example -->
+        <section class="example-section">
+            <h2>JavaScript</h2>
+            <pre><code class="language-javascript">
+// Modern JavaScript with async/await
+class ApiClient {
+    constructor(baseUrl) {
+        this.baseUrl = baseUrl;
+        this.headers = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.getToken()}`
+        };
+    }
+
+    async fetchData(endpoint) {
+        try {
+            const response = await fetch(`${this.baseUrl}/${endpoint}`, {
+                method: 'GET',
+                headers: this.headers
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            return this.processData(data);
+        } catch (error) {
+            console.error('Failed to fetch data:', error);
+            throw error;
+        }
+    }
+
+    processData(data) {
+        return data.map(item => ({
+            id: item.id,
+            name: item.name?.toUpperCase(),
+            timestamp: new Date(item.created_at).toISOString()
+        }));
+    }
+
+    getToken() {
+        return localStorage.getItem('auth_token') || 'anonymous';
+    }
+}
+
+// Usage
+const client = new ApiClient('https://api.example.com');
+client.fetchData('users')
+    .then(users => console.log('Users:', users))
+    .catch(error => console.error('Error:', error));
+            </code></pre>
+        </section>
+
+        <!-- Python Example -->
+        <section class="example-section">
+            <h2>Python</h2>
+            <pre><code class="language-python">
+#!/usr/bin/env python3
+"""
+Data processing pipeline with error handling
+"""
+
+import asyncio
+import json
+import logging
+from typing import List, Dict, Optional
+from dataclasses import dataclass
+from pathlib import Path
+
+@dataclass
+class User:
+    id: int
+    name: str
+    email: str
+    is_active: bool = True
+    
+    def to_dict(self) -> Dict:
+        return {
+            'id': self.id,
+            'name': self.name,
+            'email': self.email,
+            'is_active': self.is_active
+        }
+
+class UserProcessor:
+    def __init__(self, data_file: Path):
+        self.data_file = data_file
+        self.logger = logging.getLogger(__name__)
+        
+    async def process_users(self) -> List[User]:
+        """Process users from JSON file"""
+        try:
+            with open(self.data_file, 'r') as f:
+                data = json.load(f)
+                
+            users = []
+            for user_data in data.get('users', []):
+                user = User(
+                    id=user_data['id'],
+                    name=user_data['name'],
+                    email=user_data['email'],
+                    is_active=user_data.get('active', True)
+                )
+                users.append(user)
+                
+            self.logger.info(f"Processed {len(users)} users")
+            return users
+            
+        except FileNotFoundError:
+            self.logger.error(f"File not found: {self.data_file}")
+            raise
+        except json.JSONDecodeError as e:
+            self.logger.error(f"Invalid JSON: {e}")
+            raise
+        except KeyError as e:
+            self.logger.error(f"Missing required field: {e}")
+            raise
+
+async def main():
+    processor = UserProcessor(Path('users.json'))
+    users = await processor.process_users()
+    
+    for user in users:
+        print(f"User: {user.name} ({user.email})")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+            </code></pre>
+        </section>
+
+        <!-- CSS Example -->
+        <section class="example-section">
+            <h2>CSS/SCSS</h2>
+            <pre><code class="language-css">
+/* Modern CSS with custom properties and grid */
+:root {
+  --primary-color: #ff0054;
+  --secondary-color: #0fb4f0;
+  --accent-color: #fbff12;
+  --background: #212121;
+  --text: #adadad;
+  --border-radius: 0.5rem;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card {
+  background: var(--background);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: var(--transition);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  }
+  
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    
+    h3 {
+      color: var(--text);
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0;
+    }
+  }
+  
+  &__content {
+    color: var(--text);
+    line-height: 1.6;
+  }
+  
+  &__actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--border-radius);
+  font-weight: 500;
+  text-decoration: none;
+  transition: var(--transition);
+  cursor: pointer;
+  
+  &--primary {
+    background: var(--primary-color);
+    color: white;
+    
+    &:hover {
+      background: color-mix(in srgb, var(--primary-color) 85%, black);
+    }
+  }
+  
+  &--secondary {
+    background: var(--secondary-color);
+    color: white;
+    
+    &:hover {
+      background: color-mix(in srgb, var(--secondary-color) 85%, black);
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: 1rem;
+    
+    &__actions {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+            </code></pre>
+        </section>
+
+        <!-- HTML Example -->
+        <section class="example-section">
+            <h2>HTML</h2>
+            <pre><code class="language-html">
+&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;Modern Web App&lt;/title&gt;
+    &lt;link rel="stylesheet" href="styles.css"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;header class="header"&gt;
+        &lt;nav class="nav"&gt;
+            &lt;div class="nav__brand"&gt;
+                &lt;img src="logo.svg" alt="Logo" class="nav__logo"&gt;
+                &lt;span class="nav__title"&gt;MyApp&lt;/span&gt;
+            &lt;/div&gt;
+            &lt;ul class="nav__menu"&gt;
+                &lt;li class="nav__item"&gt;
+                    &lt;a href="#home" class="nav__link nav__link--active"&gt;Home&lt;/a&gt;
+                &lt;/li&gt;
+                &lt;li class="nav__item"&gt;
+                    &lt;a href="#about" class="nav__link"&gt;About&lt;/a&gt;
+                &lt;/li&gt;
+                &lt;li class="nav__item"&gt;
+                    &lt;a href="#contact" class="nav__link"&gt;Contact&lt;/a&gt;
+                &lt;/li&gt;
+            &lt;/ul&gt;
+        &lt;/nav&gt;
+    &lt;/header&gt;
+
+    &lt;main class="main"&gt;
+        &lt;section class="hero"&gt;
+            &lt;div class="container"&gt;
+                &lt;h1 class="hero__title"&gt;Welcome to MyApp&lt;/h1&gt;
+                &lt;p class="hero__subtitle"&gt;
+                    A modern web application built with the latest technologies
+                &lt;/p&gt;
+                &lt;div class="hero__actions"&gt;
+                    &lt;button class="btn btn--primary"&gt;Get Started&lt;/button&gt;
+                    &lt;button class="btn btn--secondary"&gt;Learn More&lt;/button&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+
+        &lt;section class="features"&gt;
+            &lt;div class="container"&gt;
+                &lt;h2 class="features__title"&gt;Features&lt;/h2&gt;
+                &lt;div class="features__grid"&gt;
+                    &lt;article class="feature-card"&gt;
+                        &lt;div class="feature-card__icon"&gt;🚀&lt;/div&gt;
+                        &lt;h3 class="feature-card__title"&gt;Fast Performance&lt;/h3&gt;
+                        &lt;p class="feature-card__description"&gt;
+                            Optimized for speed and efficiency
+                        &lt;/p&gt;
+                    &lt;/article&gt;
+                    &lt;article class="feature-card"&gt;
+                        &lt;div class="feature-card__icon"&gt;🔒&lt;/div&gt;
+                        &lt;h3 class="feature-card__title"&gt;Secure&lt;/h3&gt;
+                        &lt;p class="feature-card__description"&gt;
+                            Built with security best practices
+                        &lt;/p&gt;
+                    &lt;/article&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+        &lt;/section&gt;
+    &lt;/main&gt;
+
+    &lt;footer class="footer"&gt;
+        &lt;div class="container"&gt;
+            &lt;p class="footer__text"&gt;&copy; 2024 MyApp. All rights reserved.&lt;/p&gt;
+        &lt;/div&gt;
+    &lt;/footer&gt;
+
+    &lt;script src="app.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+            </code></pre>
+        </section>
+
+        <!-- JSON Example -->
+        <section class="example-section">
+            <h2>JSON</h2>
+            <pre><code class="language-json">
+{
+  "name": "hui-prism",
+  "version": "1.0.0",
+  "description": "A modern Prism.js theme with HUI color scheme",
+  "main": "dist/theme.css",
+  "files": [
+    "dist/",
+    "src/",
+    "sass.config.js"
+  ],
+  "scripts": {
+    "build": "npm run build:dev && npm run build:prod",
+    "build:dev": "sass theme.scss dist/theme.css --style=expanded --source-map",
+    "build:prod": "sass theme.scss dist/theme.min.css --style=compressed --no-source-map",
+    "watch": "sass theme.scss dist/theme.css --watch --style=expanded --source-map"
+  },
+  "keywords": [
+    "prism",
+    "syntax-highlighting",
+    "base16",
+    "theme",
+    "sass",
+    "css"
+  ],
+  "author": "Your Name",
+  "license": "ISC",
+  "devDependencies": {
+    "sass": "^1.93.2",
+    "rimraf": "^6.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/hui-prism.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/hui-prism/issues"
+  },
+  "homepage": "https://github.com/your-username/hui-prism#readme"
+}
+            </code></pre>
+        </section>
+
+        <!-- Bash Example -->
+        <section class="example-section">
+            <h2>Bash</h2>
+            <pre><code class="language-bash">
+#!/bin/bash
+
+# Build script for Hui Prism Theme
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Configuration
+DIST_DIR="dist"
+SRC_DIR="src"
+THEME_FILE="theme.scss"
+
+log() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+    exit 1
+}
+
+# Check if sass is installed
+check_dependencies() {
+    log "Checking dependencies..."
+    
+    if ! command -v sass &> /dev/null; then
+        error "Sass is not installed. Please run: npm install"
+    fi
+    
+    success "Dependencies OK"
+}
+
+# Clean build directory
+clean() {
+    log "Cleaning build directory..."
+    
+    if [ -d "$DIST_DIR" ]; then
+        rm -rf "$DIST_DIR"
+        success "Cleaned $DIST_DIR"
+    fi
+    
+    mkdir -p "$DIST_DIR"
+}
+
+# Build development version
+build_dev() {
+    log "Building development version..."
+    
+    sass "$THEME_FILE" "$DIST_DIR/theme.css" \
+        --style=expanded \
+        --source-map \
+        --source-map-urls=relative \
+        --verbose
+    
+    success "Development build complete"
+}
+
+# Build production version
+build_prod() {
+    log "Building production version..."
+    
+    sass "$THEME_FILE" "$DIST_DIR/theme.min.css" \
+        --style=compressed \
+        --no-source-map \
+        --verbose
+    
+    success "Production build complete"
+}
+
+# Show build info
+show_info() {
+    echo ""
+    echo "🎨 Hui Prism Theme built successfully!"
+    echo "📁 Output: $DIST_DIR/"
+    echo "📄 Files: theme.css, theme.min.css"
+    echo ""
+    echo "🚀 Usage:"
+    echo "  <link rel=\"stylesheet\" href=\"$DIST_DIR/theme.css\">"
+    echo ""
+}
+
+# Main build process
+main() {
+    log "Starting build process..."
+    
+    check_dependencies
+    clean
+    build_dev
+    build_prod
+    show_info
+    
+    success "Build complete!"
+}
+
+# Run main function
+main "$@"
+            </code></pre>
+        </section>
+
+        <!-- TypeScript Example -->
+        <section class="example-section">
+            <h2>TypeScript</h2>
+            <pre><code class="language-typescript">
+// TypeScript interface definitions and utility types
+interface User {
+  readonly id: string;
+  name: string;
+  email: string;
+  preferences: UserPreferences;
+  createdAt: Date;
+  updatedAt?: Date;
+}
+
+interface UserPreferences {
+  theme: 'light' | 'dark' | 'auto';
+  language: string;
+  notifications: {
+    email: boolean;
+    push: boolean;
+    sms: boolean;
+  };
+}
+
+type UserRole = 'admin' | 'user' | 'moderator';
+type UserStatus = 'active' | 'inactive' | 'suspended';
+
+// Generic API response type
+interface ApiResponse<T> {
+  data: T;
+  message: string;
+  success: boolean;
+  timestamp: string;
+}
+
+// Utility type for partial updates
+type PartialUser = Partial<Pick<User, 'name' | 'email' | 'preferences'>>;
+
+// Class with generic constraints
+class UserService<T extends User> {
+  private users: Map<string, T> = new Map();
+  
+  constructor(private apiEndpoint: string) {}
+  
+  async createUser(userData: Omit<T, 'id' | 'createdAt'>): Promise<T> {
+    const newUser: T = {
+      ...userData,
+      id: this.generateId(),
+      createdAt: new Date()
+    } as T;
+    
+    this.users.set(newUser.id, newUser);
+    return newUser;
+  }
+  
+  async updateUser(id: string, updates: PartialUser): Promise<T | null> {
+    const user = this.users.get(id);
+    if (!user) return null;
+    
+    const updatedUser = {
+      ...user,
+      ...updates,
+      updatedAt: new Date()
+    };
+    
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+  
+  async deleteUser(id: string): Promise<boolean> {
+    return this.users.delete(id);
+  }
+  
+  async getUser(id: string): Promise<T | null> {
+    return this.users.get(id) || null;
+  }
+  
+  async getAllUsers(): Promise<T[]> {
+    return Array.from(this.users.values());
+  }
+  
+  private generateId(): string {
+    return Math.random().toString(36).substr(2, 9);
+  }
+}
+
+// Usage with type constraints
+const userService = new UserService<User>('/api/users');
+
+// Async function with proper error handling
+async function processUsers(): Promise<void> {
+  try {
+    const users = await userService.getAllUsers();
+    
+    const activeUsers = users.filter(user => 
+      user.preferences.notifications.email
+    );
+    
+    console.log(`Found ${activeUsers.length} users with email notifications enabled`);
+    
+    // Process users in parallel
+    await Promise.all(
+      activeUsers.map(async (user) => {
+        await sendNotification(user);
+      })
+    );
+    
+  } catch (error) {
+    console.error('Failed to process users:', error);
+    throw error;
+  }
+}
+
+async function sendNotification(user: User): Promise<void> {
+  // Implementation here
+  console.log(`Sending notification to ${user.email}`);
+}
+
+// Export types and service
+export { User, UserPreferences, UserService, ApiResponse };
+export default userService;
+            </code></pre>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>Hui Prism Theme Testbed - Testing syntax highlighting with HUI colors</p>
+    </footer>
+
+    <script src="/testbed/testbed.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+// =============================================================================
+// Hui Prism Theme - Main Entry Point
+// =============================================================================
+// This is the main entry point for the Hui Prism theme.
+// Import this file to get the complete theme with all features.
+
+@use 'src/index' as theme;
+
+// Export the theme for use in other projects
+@include theme.hui-prism-theme();

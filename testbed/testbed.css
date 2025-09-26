@@ -1,0 +1,296 @@
+/* Testbed Styles for Hui Prism Theme */
+
+:root {
+  --bg-primary: #212121;
+  --bg-secondary: #3d3d3d;
+  --text-primary: #adadad;
+  --text-secondary: #757575;
+  --accent-primary: #ff0054;
+  --accent-secondary: #0fb4f0;
+  --accent-tertiary: #fbff12;
+  --border-color: #595959;
+  --border-radius: 0.5rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* Header */
+.header {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: var(--spacing-lg) 0;
+  text-align: center;
+}
+
+.header h1 {
+  color: var(--accent-tertiary);
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+}
+
+.header p {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Theme Switcher */
+.theme-switcher {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+.btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent-secondary);
+}
+
+.btn.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+}
+
+/* Container */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-xl) var(--spacing-md);
+}
+
+/* Example Sections */
+.example-section {
+  margin-bottom: var(--spacing-xl);
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.example-section h2 {
+  background: var(--accent-primary);
+  color: white;
+  padding: var(--spacing-md);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.example-section pre {
+  margin: 0;
+  border-radius: 0;
+  background: var(--bg-primary);
+  padding: var(--spacing-lg);
+  overflow-x: auto;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.example-section code {
+  font-family: 'Consolas', 'Monaco', 'Andale Mono', 'Ubuntu Mono', monospace;
+}
+
+/* Code block enhancements */
+pre[class*="language-"] {
+  position: relative;
+  border: 1px solid var(--border-color);
+  border-top: none;
+}
+
+pre[class*="language-"]::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom-left-radius: var(--border-radius);
+}
+
+/* Copy button */
+.copy-btn {
+  position: absolute;
+  top: var(--spacing-sm);
+  right: var(--spacing-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.example-section:hover .copy-btn {
+  opacity: 1;
+}
+
+.copy-btn:hover {
+  background: var(--accent-secondary);
+  color: white;
+  border-color: var(--accent-secondary);
+}
+
+/* Footer */
+.footer {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  padding: var(--spacing-lg) 0;
+  text-align: center;
+  margin-top: var(--spacing-xl);
+}
+
+.footer p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .header h1 {
+    font-size: 2rem;
+  }
+  
+  .container {
+    padding: var(--spacing-md);
+  }
+  
+  .example-section pre {
+    padding: var(--spacing-md);
+    font-size: 0.8rem;
+  }
+  
+  .theme-switcher {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .btn {
+    width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .header p {
+    font-size: 1rem;
+  }
+  
+  .example-section h2 {
+    font-size: 1.1rem;
+    padding: var(--spacing-sm) var(--spacing-md);
+  }
+  
+  .example-section pre {
+    padding: var(--spacing-sm);
+    font-size: 0.75rem;
+  }
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Selection Styling */
+::selection {
+  background: var(--accent-primary);
+  color: white;
+}
+
+::-moz-selection {
+  background: var(--accent-primary);
+  color: white;
+}
+
+/* Focus Styles */
+.btn:focus,
+.copy-btn:focus {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 2px;
+}
+
+/* Animation for theme switching */
+.example-section {
+  transition: all 0.3s ease;
+}
+
+/* Print Styles */
+@media print {
+  .header,
+  .footer,
+  .theme-switcher {
+    display: none;
+  }
+  
+  .container {
+    max-width: none;
+    padding: 0;
+  }
+  
+  .example-section {
+    break-inside: avoid;
+    margin-bottom: 1rem;
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+  
+  pre[class*="language-"] {
+    background: white !important;
+    color: black !important;
+    border: 1px solid #ccc;
+  }
+}
