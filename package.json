@@ -4,7 +4,7 @@
   "author": "Derek Scott <derek@huement.com>",
   "homepage": "https://github.com/huement/hui-prism",
   "private": false,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A modern Prism.js theme builder with base16 color support",
   "main": "dist/theme.css",
   "files": [
