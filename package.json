@@ -33,7 +33,7 @@
     "clean": "rimraf dist",
     "prebuild": "npm run clean",
     "postbuild": "npm run build:info",
-    "build:info": "node -e \"console.log('\\n🎨 Hui Prism Theme built successfully!\\n📁 Output: dist/\\n📄 Files: theme.css, theme.min.css\\n\\n🚀 Usage:\\n  <link rel=\\\"stylesheet\\\" href=\\\"dist/theme.css\\\">\\n\\n📖 Documentation: https://github.com/huement/hui-prism\\n')\"",
+    "build:info": "node scripts/build-info.js",
     "docs": "npm run build:dev && npm run docs:serve",
     "docs:serve": "python3 -m http.server 8080",
     "docs:open": "npm run docs && open http://localhost:8080",

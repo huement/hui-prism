@@ -1,103 +1,98 @@
 // =============================================================================
-// Prism.js Theme Components
+// Prism.js Theme Components (Simplified)
 // =============================================================================
-// Modern Sass implementation of Prism.js theme with modular components,
-// advanced features, and comprehensive token support.
 
 @use 'sass:map';
-@use 'sass:color';
-@use 'sass:math';
-@use 'sass:meta';
 
-// =============================================================================
-// Base Styles Mixin
-// =============================================================================
+/// Emit CSS custom properties for a given theme token map.
+@mixin theme-variables($theme) {
+  @each $token, $value in $theme {
+    --prism-#{$token}: #{$value};
+  }
+}
 
-/// Generate base styles for code blocks and inline code
-/// @param {List} $font-family - Font family stack
-/// @param {Number} $font-size - Base font size
-/// @param {Number} $line-height - Line height
-/// @param {Number} $tab-size - Tab size
-/// @param {String} $padding - Padding for code blocks
-/// @param {String} $margin - Margin for code blocks
-/// @param {String} $inline-padding - Padding for inline code
-/// @param {Number} $border-radius - Border radius
-/// @param {Map} $colors - Color scheme map
-@mixin base-styles($font-family: ('Consolas', 'Monaco', 'Andale Mono', 'Ubuntu Mono', monospace),
-  $font-size: 1rem,
-  $line-height: 1.5,
-  $tab-size: 4,
-  $padding: 1.2em,
-  $margin: 0.75em 0,
-  $inline-padding: 0.1em,
-  $border-radius: 0.3em,
-  $colors: ()) {
-  // Extract colors with fallbacks
-  $base00: map.get($colors, 'base00') or #181818;
-  $base05: map.get($colors, 'base05') or #d8d8d8;
-  $base07: map.get($colors, 'base07') or #f8f8f8;
+/// Core Prism styles that reference the CSS custom properties.
+@mixin base-styles() {
+  @keyframes highlight-pulse {
+    0% {
+      background: rgba(251, 255, 18, 0.3);
+    }
 
-  // Base code and pre styles
+    50% {
+      background: rgba(251, 255, 18, 0.1);
+    }
+
+    100% {
+      background: rgba(251, 255, 18, 0.7);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
   code[class*='language-'],
   pre[class*='language-'] {
-    color: $base05;
+    color: var(--prism-text);
     background: none;
-    font-family: $font-family;
-    font-size: $font-size;
+    font-family: 'Consolas', 'Monaco', 'Andale Mono', 'Ubuntu Mono', monospace;
+    font-size: 1rem;
     text-align: left;
     white-space: pre;
     word-spacing: normal;
     word-break: normal;
     word-wrap: normal;
-    line-height: $line-height;
-    -moz-tab-size: $tab-size;
-    -o-tab-size: $tab-size;
-    tab-size: $tab-size;
+    line-height: 1.5;
+    -moz-tab-size: 4;
+    -o-tab-size: 4;
+    tab-size: 4;
     -webkit-hyphens: none;
     -moz-hyphens: none;
     -ms-hyphens: none;
     hyphens: none;
-
-    // Modern CSS features
     font-feature-settings: 'liga' 1, 'calt' 1;
     font-variant-ligatures: contextual;
     text-rendering: optimizeLegibility;
-
-    // Smooth scrolling for overflow
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
   }
 
-  // Code blocks
   pre[class*='language-'] {
-    padding: $padding;
-    margin: $margin;
+    padding: 1.2em;
+    margin: 0.75em 0;
     overflow: auto;
-    background: $base00;
-    border-radius: $border-radius;
+    background: var(--prism-block-bg);
+    border: var(--prism-block-border);
+    border-radius: 0.3em;
     position: relative;
 
-    // Modern scrollbar styling
     &::-webkit-scrollbar {
       height: 8px;
       width: 8px;
     }
 
     &::-webkit-scrollbar-track {
-      background: color.adjust($base00, $lightness: 5%);
+      background: var(--prism-scrollbar-track);
       border-radius: 4px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: color.adjust($base00, $lightness: 15%);
+      background: var(--prism-scrollbar-thumb);
       border-radius: 4px;
 
       &:hover {
-        background: color.adjust($base00, $lightness: 25%);
+        background: var(--prism-scrollbar-thumb-hover);
       }
     }
 
-    // Code block header (optional)
     &::before {
       content: attr(data-language);
       position: absolute;
@@ -105,362 +100,230 @@
       right: 0;
       padding: 0.25em 0.5em;
       font-size: 0.75em;
-      color: color.adjust($base05, $alpha: -0.5);
-      background: color.adjust($base00, $lightness: 5%);
-      border-radius: 0 0 0 $border-radius;
+      color: var(--prism-label-color);
+      background: var(--prism-label-bg);
+      border-radius: 0 0 0 0.3em;
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
   }
 
-  // Inline code
   :not(pre)>code[class*='language-'] {
-    padding: $inline-padding;
-    border-radius: $border-radius;
+    padding: 0.1em;
+    border-radius: 0.3em;
     white-space: normal;
-    background: $base00;
-    color: $base07;
+    background: var(--prism-inline-bg);
+    color: var(--prism-inline-text);
     font-size: 0.9em;
     font-weight: 500;
-
-    // Subtle border for better definition
-    border: 1px solid color.adjust($base00, $lightness: 10%);
+    border: 1px solid var(--prism-inline-border-color);
   }
 
-  // Selection styling
   ::selection {
-    background: color.adjust($base00, $lightness: 20%);
-    color: $base07;
+    background: var(--prism-selection-bg);
+    color: var(--prism-selection-color);
   }
 
-  // Focus styles for accessibility
   pre[class*='language-']:focus {
-    outline: 2px solid color.adjust($base00, $lightness: 30%);
+    outline: 2px solid var(--prism-focus-outline);
     outline-offset: 2px;
   }
-}
 
-// =============================================================================
-// Token Styles Mixin
-// =============================================================================
+  .token {
+    position: relative;
+    transition: color 0.2s ease, background-color 0.2s ease;
 
-/// Generate styles for syntax highlighting tokens
-/// @param {Map} $colors - Color scheme map
-/// @param {Map} $custom-tokens - Custom token overrides
-@mixin token-styles($colors: (), $custom-tokens: ()) {
-  // Extract colors with fallbacks
-  $base00: map.get($colors, 'base00') or #181818;
-  $base02: map.get($colors, 'base02') or #383838;
-  $base05: map.get($colors, 'base05') or #d8d8d8;
-  $base07: map.get($colors, 'base07') or #f8f8f8;
-  $base08: map.get($colors, 'base08') or #ab4642;
-  $base09: map.get($colors, 'base09') or #dc9656;
-  $base0a: map.get($colors, 'base0a') or #f7ca88;
-  $base0b: map.get($colors, 'base0b') or #a1b56c;
-  $base0c: map.get($colors, 'base0c') or #86c1b9;
-  $base0d: map.get($colors, 'base0d') or #7cafc2;
-  $base0e: map.get($colors, 'base0e') or #ba8baf;
-  $base0f: map.get($colors, 'base0f') or #a16946;
+    &.comment,
+    &.block-comment,
+    &.prolog,
+    &.doctype,
+    &.cdata {
+      color: var(--prism-comment-color);
+      font-style: italic;
+      opacity: 0.8;
+    }
 
-  // Default token styles
-  $default-tokens: (
-    'comment': $base02,
-    'block-comment': $base02,
-    'prolog': $base02,
-    'doctype': $base02,
-    'cdata': $base02,
-    'punctuation': $base07,
-    'tag': $base08,
-    'attr-name': $base08,
-    'namespace': $base08,
-    'deleted': $base08,
-    'function-name': $base0e,
-    'boolean': $base09,
-    'number': $base09,
-    'function': $base09,
-    'property': $base0a,
-    'class-name': $base0a,
-    'constant': $base0a,
-    'symbol': $base0a,
-    'selector': $base0f,
-    'important': $base0f,
-    'atrule': $base0f,
-    'keyword': $base0f,
-    'builtin': $base0f,
-    'string': $base0d,
-    'char': $base0d,
-    'attr-value': $base0d,
-    'regex': $base0d,
-    'variable': $base0d,
-    'operator': $base0c,
-    'entity': $base0c,
-    'url': $base0c,
-    'inserted': $base0b
-  );
+    &.punctuation {
+      color: var(--prism-punctuation-color);
+      opacity: 0.7;
+    }
 
-// Merge with custom tokens
-$tokens: map.merge($default-tokens, $custom-tokens);
+    &.tag,
+    &.attr-name,
+    &.namespace,
+    &.deleted {
+      color: var(--prism-tag-color);
+      font-weight: 500;
+    }
 
-// Generate token styles
-.token {
-  // Base token styles
-  position: relative;
-  transition: color 0.2s ease, background-color 0.2s ease;
+    &.function-name {
+      color: var(--prism-function-name-color);
+      font-weight: 600;
+    }
 
-  // Comment tokens
-  &.comment,
-  &.block-comment,
-  &.prolog,
-  &.doctype,
-  &.cdata {
-    color: map.get($tokens, 'comment');
-    font-style: italic;
-    opacity: 0.8;
-  }
+    &.boolean,
+    &.number,
+    &.function {
+      color: var(--prism-boolean-color);
+      font-weight: 500;
+    }
 
-  // Punctuation
-  &.punctuation {
-    color: map.get($tokens, 'punctuation');
-    opacity: 0.7;
-  }
+    &.property,
+    &.class-name,
+    &.constant,
+    &.symbol {
+      color: var(--prism-property-color);
+      font-weight: 500;
+    }
 
-  // Tags and attributes
-  &.tag,
-  &.attr-name,
-  &.namespace,
-  &.deleted {
-    color: map.get($tokens, 'tag');
-    font-weight: 500;
-  }
+    &.selector,
+    &.important,
+    &.atrule,
+    &.keyword,
+    &.builtin {
+      color: var(--prism-keyword-color);
+      font-weight: 600;
+    }
 
-  // Functions
-  &.function-name {
-    color: map.get($tokens, 'function-name');
-    font-weight: 600;
-  }
+    &.string,
+    &.char,
+    &.attr-value,
+    &.regex,
+    &.variable {
+      color: var(--prism-string-color);
+    }
 
-  // Numbers and booleans
-  &.boolean,
-  &.number,
-  &.function {
-    color: map.get($tokens, 'boolean');
-    font-weight: 500;
-  }
+    &.operator,
+    &.entity,
+    &.url {
+      color: var(--prism-operator-color);
+    }
 
-  // Properties and classes
-  &.property,
-  &.class-name,
-  &.constant,
-  &.symbol {
-    color: map.get($tokens, 'property');
-    font-weight: 500;
-  }
-
-  // Selectors and keywords
-  &.selector,
-  &.important,
-  &.atrule,
-  &.keyword,
-  &.builtin {
-    color: map.get($tokens, 'selector');
-    font-weight: 600;
-  }
-
-  // Strings and values
-  &.string,
-  &.char,
-  &.attr-value,
-  &.regex,
-  &.variable {
-    color: map.get($tokens, 'string');
-  }
-
-  // Operators and entities
-  &.operator,
-  &.entity,
-  &.url {
-    color: map.get($tokens, 'operator');
-  }
-
-  // Inserted content
-  &.inserted {
-    color: map.get($tokens, 'inserted');
-    background: color.adjust(map.get($tokens, 'inserted'), $alpha: -0.8);
-    padding: 0.1em 0.2em;
-    border-radius: 0.2em;
-  }
-
-  // Deleted content
-  &.deleted {
-    background: color.adjust(map.get($tokens, 'tag'), $alpha: -0.8);
-    padding: 0.1em 0.2em;
-    border-radius: 0.2em;
-    text-decoration: line-through;
-  }
-
-  // Text formatting
-  &.important,
-  &.bold {
-    font-weight: bold;
-  }
-
-  &.italic {
-    font-style: italic;
-  }
-
-  // Interactive elements
-  &.entity {
-    cursor: help;
-    text-decoration: underline;
-    text-decoration-style: dotted;
-  }
-
-  // URL styling
-  &.url {
-    text-decoration: underline;
-
-    &:hover {
-      text-decoration: none;
-      background: color.adjust(map.get($tokens, 'operator'), $alpha: -0.7);
+    &.inserted {
+      color: var(--prism-inserted-color);
+      background: var(--prism-inserted-bg);
       padding: 0.1em 0.2em;
       border-radius: 0.2em;
     }
+
+    &.deleted {
+      background: var(--prism-deleted-bg);
+      padding: 0.1em 0.2em;
+      border-radius: 0.2em;
+      text-decoration: line-through;
+      color: var(--prism-deleted-color);
+    }
+
+    &.highlight {
+      background: var(--prism-highlight-bg);
+      padding: 0.1em 0.2em;
+      border-radius: 0.2em;
+      animation: highlight-pulse 0.5s ease-in-out;
+    }
+
+    &.error {
+      background: var(--prism-error-bg);
+      color: var(--prism-error-color);
+      padding: 0.1em 0.2em;
+      border-radius: 0.2em;
+      border-left: 3px solid var(--prism-error-border);
+    }
+
+    &.warning {
+      background: var(--prism-warning-bg);
+      color: var(--prism-warning-color);
+      padding: 0.1em 0.2em;
+      border-radius: 0.2em;
+      border-left: 3px solid var(--prism-warning-border);
+    }
+
+    &.important,
+    &.bold {
+      font-weight: bold;
+    }
+
+    &.italic {
+      font-style: italic;
+    }
+
+    &.entity {
+      cursor: help;
+      text-decoration: underline;
+      text-decoration-style: dotted;
+    }
+
+    &.url {
+      text-decoration: underline;
+
+      &:hover {
+        text-decoration: none;
+        background: var(--prism-url-hover-bg);
+        padding: 0.1em 0.2em;
+        border-radius: 0.2em;
+        color: var(--prism-url-color);
+      }
+    }
   }
 
-  // Highlighted tokens (for search results, etc.)
-  &.highlight {
-    background: color.adjust($base0a, $alpha: -0.7);
-    padding: 0.1em 0.2em;
-    border-radius: 0.2em;
-    animation: highlight-pulse 0.5s ease-in-out;
-  }
-
-  // Error tokens
-  &.error {
-    background: color.adjust($base08, $alpha: -0.8);
-    color: $base08;
-    padding: 0.1em 0.2em;
-    border-radius: 0.2em;
-    border-left: 3px solid $base08;
-  }
-
-  // Warning tokens
-  &.warning {
-    background: color.adjust($base09, $alpha: -0.8);
-    color: $base09;
-    padding: 0.1em 0.2em;
-    border-radius: 0.2em;
-    border-left: 3px solid $base09;
-  }
-}
-
-// Line numbers (if supported)
-.line-numbers {
-  .line-numbers-rows {
-    border-right: 1px solid color.adjust($base00, $lightness: 10%);
+  .line-numbers .line-numbers-rows {
+    border-right: 1px solid var(--prism-line-number-border);
 
     span {
-      color: color.adjust($base05, $alpha: -0.5);
+      color: var(--prism-line-number-color);
       font-size: 0.9em;
       padding-right: 1em;
       user-select: none;
     }
   }
-}
 
-// Copy button (if present)
-.copy-to-clipboard {
-  position: absolute;
-  top: 0.5em;
-  right: 0.5em;
-  background: color.adjust($base00, $lightness: 10%);
-  color: $base05;
-  border: 1px solid color.adjust($base00, $lightness: 20%);
-  border-radius: 0.25em;
-  padding: 0.25em 0.5em;
-  font-size: 0.75em;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  .copy-to-clipboard {
+    position: absolute;
+    top: 0.5em;
+    right: 0.5em;
+    background: var(--prism-copy-bg);
+    color: var(--prism-copy-color);
+    border: 1px solid var(--prism-copy-border);
+    border-radius: 0.25em;
+    padding: 0.25em 0.5em;
+    font-size: 0.75em;
+    cursor: pointer;
+    transition: all 0.2s ease;
 
-  &:hover {
-    background: color.adjust($base00, $lightness: 20%);
-    color: $base07;
+    &:hover {
+      background: var(--prism-copy-hover-bg);
+      color: var(--prism-copy-hover-color);
+    }
+
+    &:active {
+      transform: translateY(1px);
+    }
   }
 
-  &:active {
-    transform: translateY(1px);
-  }
-}
-}
-
-// =============================================================================
-// Animation Keyframes
-// =============================================================================
-
-@keyframes highlight-pulse {
-  0% {
-    background: rgba(251, 255, 18, 0.3);
-  }
-
-  50% {
-    background: rgba(251, 255, 18, 0.1);
-  }
-
-  100% {
-    background: rgba(251, 255, 18, 0.7);
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-// =============================================================================
-// Responsive Styles
-// =============================================================================
-
-/// Responsive adjustments for different screen sizes
-@mixin responsive-token-styles {
-
-  // Mobile adjustments
   @media (max-width: 768px) {
     pre[class*='language-'] {
       font-size: 0.9em;
       padding: 1em;
       margin: 0.5em 0;
-
-      &::-webkit-scrollbar {
-        height: 6px;
-        width: 6px;
-      }
     }
 
-    .token {
+    pre[class*='language-']::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
 
-      &.highlight,
-      &.error,
-      &.warning {
-        padding: 0.05em 0.1em;
-      }
+    .token.highlight,
+    .token.error,
+    .token.warning {
+      padding: 0.05em 0.1em;
     }
   }
 
-  // Tablet adjustments
   @media (min-width: 769px) and (max-width: 1024px) {
     pre[class*='language-'] {
       font-size: 0.95em;
     }
   }
 
-  // Large screen optimizations
   @media (min-width: 1200px) {
     pre[class*='language-'] {
       font-size: 1.1em;

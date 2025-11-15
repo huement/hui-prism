@@ -4,7 +4,21 @@
 // This is the main entry point for the Hui Prism theme.
 // Import this file to get the complete theme with all features.
 
-@use 'src/index' as theme;
+@use 'src' as theme;
 
-// Export the theme for use in other projects
-@include theme.hui-prism-theme();
+:root {
+  @include theme.hui-prism-vars('dark');
+}
+
+:root[data-hui-prism-theme='dark'],
+[data-hui-prism-theme='dark'],
+[data-bs-theme='dark'] {
+  @include theme.hui-prism-vars('dark');
+}
+
+[data-hui-prism-theme='light'],
+[data-bs-theme='light'] {
+  @include theme.hui-prism-vars('light');
+}
+
+@include theme.hui-prism-base();

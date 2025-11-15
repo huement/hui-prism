@@ -1,5 +1,54 @@
 // Testbed JavaScript for Hui Prism Theme
 
+const PAGE_COLOR_MODE_KEY = "hui-prism-color-mode";
+const HUI_PRISM_ATTR = "data-hui-prism-theme";
+
+function applyPageColorMode(mode, options = {}) {
+  const { persist = true, silent = false } = options;
+  const safeMode = mode === "light" ? "light" : "dark";
+
+  document.documentElement.setAttribute(HUI_PRISM_ATTR, safeMode);
+  if (document.body) {
+    document.body.setAttribute(HUI_PRISM_ATTR, safeMode);
+  }
+
+  updateColorModeToggleLabel(safeMode);
+
+  if (persist) {
+    localStorage.setItem(PAGE_COLOR_MODE_KEY, safeMode);
+  }
+
+  if (!silent) {
+    showNotification(
+      `Switched to ${safeMode === "light" ? "Light" : "Dark"} mode`
+    );
+  }
+}
+
+function togglePageColorMode() {
+  const current =
+    document.documentElement.getAttribute(HUI_PRISM_ATTR) ||
+    localStorage.getItem(PAGE_COLOR_MODE_KEY) ||
+    "dark";
+  const nextMode = current === "light" ? "dark" : "light";
+  applyPageColorMode(nextMode, { silent: false });
+}
+
+function updateColorModeToggleLabel(mode) {
+  const toggleBtn = document.getElementById("color-mode-toggle");
+  if (!toggleBtn) {
+    return;
+  }
+
+  if (mode === "light") {
+    toggleBtn.textContent = "🌙 Dark Mode";
+    toggleBtn.setAttribute("aria-pressed", "true");
+  } else {
+    toggleBtn.textContent = "☀ Light Mode";
+    toggleBtn.setAttribute("aria-pressed", "false");
+  }
+}
+
 // Theme switching functionality
 function switchTheme(theme) {
   const devBtn = document.getElementById("btn-dev");
@@ -272,6 +321,19 @@ document.addEventListener("DOMContentLoaded", () => {
   // Restore saved theme preference
   const savedTheme = localStorage.getItem("hui-prism-theme") || "dev";
   switchTheme(savedTheme);
+
+  const savedColorMode =
+    localStorage.getItem(PAGE_COLOR_MODE_KEY) ||
+    document.documentElement.getAttribute(HUI_PRISM_ATTR) ||
+    "dark";
+  applyPageColorMode(savedColorMode, { silent: true });
+
+  const colorToggleBtn = document.getElementById("color-mode-toggle");
+  if (colorToggleBtn) {
+    colorToggleBtn.addEventListener("click", () => {
+      togglePageColorMode();
+    });
+  }
 
   // Initialize features
   addCopyButtons();
